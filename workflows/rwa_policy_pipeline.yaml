@@ -1,0 +1,41 @@
+main:
+  params: [input]
+  steps:
+    - init:
+        assign:
+          - apiBaseUrl: ${input.api_base_url}
+          - policyId: ${input.policy_id}
+          - policyVersionId: ${input.policy_version_id}
+          - approvedBy: ${default(input.approved_by, "finance.lead@hsbc.com")}
+    - generateSql:
+        call: http.post
+        args:
+          url: ${apiBaseUrl + "/sql/generate"}
+          body:
+            policy_version_id: ${policyVersionId}
+        result: generateResp
+    - approveSql:
+        call: http.post
+        args:
+          url: ${apiBaseUrl + "/sql/approve"}
+          body:
+            sql_version_id: ${generateResp.body.sql_version_id}
+            approved_by: ${approvedBy}
+        result: approveResp
+    - executeSql:
+        call: http.post
+        args:
+          url: ${apiBaseUrl + "/sql/execute"}
+          body:
+            policy_id: ${policyId}
+            policy_version_id: ${policyVersionId}
+            sql_version_id: ${generateResp.body.sql_version_id}
+        result: executeResp
+    - output:
+        return:
+          policy_id: ${policyId}
+          policy_version_id: ${policyVersionId}
+          sql_version_id: ${generateResp.body.sql_version_id}
+          run_id: ${executeResp.body.run_id}
+          status: ${executeResp.body.status}
+
