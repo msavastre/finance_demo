@@ -1,0 +1,6 @@
+.env
+.env.*
+!.env.example
+
+# Cursor/agent local worktrees and metadata
+.claude/worktrees/
