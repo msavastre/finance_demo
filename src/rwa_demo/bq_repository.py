@@ -345,3 +345,71 @@ LIMIT 1
                     pass
         return row
 
+    def get_schema_drift(self, sql_version_id: str) -> dict[str, Any]:
+        """Compare stored schema_snapshot vs current live schema, return added/removed columns."""
+        query = f"""
+SELECT TO_JSON_STRING(schema_snapshot) AS schema_snapshot_str
+FROM {self._table("policy_sql_versions")}
+WHERE sql_version_id = @sql_version_id
+LIMIT 1
+"""
+        params = [bigquery.ScalarQueryParameter("sql_version_id", "STRING", sql_version_id)]
+        rows = list(self.client.query(query, job_config=bigquery.QueryJobConfig(query_parameters=params)).result())
+        if not rows or not rows[0]["schema_snapshot_str"]:
+            return {"added": [], "removed": [], "error": "No schema snapshot found"}
+
+        stored = json.loads(rows[0]["schema_snapshot_str"])
+        stored_cols: set[str] = set()
+        for table, cols in stored.get("tables", {}).items():
+            for col in cols:
+                stored_cols.add(f"{table}.{col['column_name']}")
+
+        current = self.get_schema_snapshot()
+        current_cols: set[str] = set()
+        for table, cols in current.get("tables", {}).items():
+            for col in cols:
+                current_cols.add(f"{table}.{col['column_name']}")
+
+        return {
+            "added": sorted(current_cols - stored_cols),
+            "removed": sorted(stored_cols - current_cols),
+        }
+
+    def get_policy_timeline(self, policy_id: str) -> list[dict[str, Any]]:
+        """Return chronological events for all versions of a policy."""
+        query = f"""
+SELECT
+  pd.policy_version_id,
+  pd.uploaded_at,
+  pd.uploaded_by,
+  pd.status AS policy_status,
+  pd.supersedes_policy_version_id,
+  psv.sql_version_id,
+  psv.validation_status,
+  psv.approved_at,
+  psv.approved_by,
+  rr.run_id,
+  rr.run_status,
+  rr.started_at,
+  rr.ended_at
+FROM {self._table("policy_documents")} pd
+LEFT JOIN {self._table("policy_sql_versions")} psv
+  ON pd.policy_version_id = psv.policy_version_id
+LEFT JOIN {self._table("report_runs")} rr
+  ON pd.policy_version_id = rr.policy_version_id
+WHERE pd.policy_id = @policy_id
+ORDER BY pd.uploaded_at ASC
+"""
+        params = [bigquery.ScalarQueryParameter("policy_id", "STRING", policy_id)]
+        rows = list(self.client.query(
+            query, job_config=bigquery.QueryJobConfig(query_parameters=params)
+        ).result())
+        result = []
+        for row in rows:
+            d = dict(row)
+            for k, v in d.items():
+                if hasattr(v, "isoformat"):
+                    d[k] = v.isoformat()
+            result.append(d)
+        return result
+

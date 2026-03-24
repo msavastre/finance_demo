@@ -1,7 +1,10 @@
+import csv
 import difflib
+import io
 import json
 import os
 import sys
+import zipfile
 
 import plotly.graph_objects as go
 import streamlit as st
@@ -118,6 +121,8 @@ tabs = st.tabs(
         "5) Impact Dashboard",
         "6) Explainability",
         "7) Lineage & Audit",
+        "8) Capital Ratios",
+        "9) RWA Analyst",
     ]
 )
 
@@ -161,14 +166,13 @@ with tabs[0]:
             st.success("Policy uploaded and registered.")
             st.json({"policy_id": policy_id, "policy_version_id": policy_version_id, "gcs_uri": gcs_uri})
 
-            # Save to session for demo mode and auto-fill
             st.session_state["demo_policy_id"] = policy_id
             st.session_state["demo_policy_version_id"] = policy_version_id
             if demo_mode:
                 st.session_state["demo_step"] = st.session_state.get("demo_step", 0) + 1
 
 # ---------------------------------------------------------------------------
-# Tab 2 – Generate SQL (Enhancement 2: streaming progress)
+# Tab 2 – Generate SQL (Enhancement 2: streaming progress + B: schema drift)
 # ---------------------------------------------------------------------------
 with tabs[1]:
     st.subheader("Generate SQL from policy")
@@ -207,7 +211,6 @@ with tabs[1]:
             st.success(f"sql_version_id: `{sql_version_id}`")
             st.markdown(f"**Summary:** {summary}")
 
-            # Show clause citations if available
             citations = agent_trace.get("clause_citations", [])
             if citations and isinstance(citations, list) and isinstance(citations[0], dict):
                 st.markdown("#### Extracted Policy Clauses")
@@ -225,6 +228,38 @@ with tabs[1]:
 
             if demo_mode:
                 st.session_state["demo_step"] = st.session_state.get("demo_step", 0) + 1
+
+    # Enhancement B: Schema Drift Warning
+    st.markdown("---")
+    st.markdown("#### Schema Drift Check")
+    st.caption("Verify a generated SQL version is still compatible with the current BigQuery schema")
+    drift_svid = st.text_input(
+        "sql_version_id to check",
+        value=st.session_state.get("demo_sql_version_id", ""),
+        key="drift_svid",
+    )
+    if drift_svid and st.button("Check Schema Drift", key="check_drift"):
+        with st.spinner("Comparing stored schema snapshot to live schema..."):
+            drift = service.repo.get_schema_drift(drift_svid)
+        added = drift.get("added", [])
+        removed = drift.get("removed", [])
+        if drift.get("error"):
+            st.warning(drift["error"])
+        elif not added and not removed:
+            st.success("No schema drift detected — SQL is compatible with the current schema.")
+        else:
+            if added:
+                st.warning(
+                    f"**{len(added)} new column(s)** added since SQL was generated — "
+                    "consider regenerating SQL to incorporate new fields."
+                )
+                st.code("\n".join(added))
+            if removed:
+                st.error(
+                    f"**{len(removed)} column(s) removed** since SQL was generated — "
+                    "SQL execution may fail."
+                )
+                st.code("\n".join(removed))
 
 # ---------------------------------------------------------------------------
 # Tab 3 – Approve + Execute
@@ -272,7 +307,6 @@ with tabs[2]:
                 )
             st.success(f"Execution completed. `run_id={run_id}`")
             st.session_state["demo_run_id"] = run_id
-            # Track baseline vs updated run
             if "demo_run_baseline" not in st.session_state:
                 st.session_state["demo_run_baseline"] = run_id
             else:
@@ -319,7 +353,6 @@ with tabs[3]:
             context=True,
             numlines=3,
         )
-        # Style the diff table
         styled = f"""
         <style>
         .diff_header {{ background-color: #f1f3f5; font-weight: bold; }}
@@ -334,7 +367,6 @@ with tabs[3]:
         """
         st.markdown(styled, unsafe_allow_html=True)
 
-        # Summary stats
         lines_a = sql_a.splitlines()
         lines_b = sql_b.splitlines()
         added = sum(1 for line in difflib.unified_diff(lines_a, lines_b) if line.startswith("+") and not line.startswith("+++"))
@@ -344,7 +376,7 @@ with tabs[3]:
         st.info("Enter a policy_id and click Load to see SQL version diffs.")
 
 # ---------------------------------------------------------------------------
-# Tab 5 – RWA Delta Impact Dashboard (Enhancement 4)
+# Tab 5 – RWA Delta Impact Dashboard (Enhancement 4 + D: Stress Test)
 # ---------------------------------------------------------------------------
 with tabs[4]:
     st.subheader("RWA Impact Dashboard")
@@ -388,7 +420,6 @@ with tabs[4]:
 
         data = st.session_state.get("impact_data", [])
         if data:
-            # KPI summary
             total_baseline = sum(float(r["rwa_baseline"]) for r in data)
             total_updated = sum(float(r["rwa_updated"]) for r in data)
             total_delta = total_updated - total_baseline
@@ -402,7 +433,6 @@ with tabs[4]:
 
             st.markdown("---")
 
-            # Grouped bar chart
             labels = [f"{r['portfolio']}\n{r['risk_bucket']}" for r in data]
             fig_bar = go.Figure()
             fig_bar.add_trace(go.Bar(
@@ -426,7 +456,6 @@ with tabs[4]:
             )
             st.plotly_chart(fig_bar, use_container_width=True)
 
-            # Waterfall chart
             waterfall_labels = [f"{r['portfolio']} / {r['risk_bucket']}" for r in data]
             waterfall_values = [float(r["rwa_delta"]) for r in data]
             fig_wf = go.Figure(go.Waterfall(
@@ -447,6 +476,64 @@ with tabs[4]:
                 height=400,
             )
             st.plotly_chart(fig_wf, use_container_width=True)
+
+            # Enhancement D: Stress Test Overlay
+            st.markdown("---")
+            st.markdown("#### Stress Test Overlay")
+            stress_mult = st.slider(
+                "Stress multiplier",
+                min_value=1.0,
+                max_value=3.0,
+                value=1.0,
+                step=0.1,
+                format="%.1fx",
+                help="Apply a multiplier to updated RWA to simulate stressed market conditions",
+                key="stress_mult",
+            )
+            if stress_mult > 1.0:
+                stressed_total = total_updated * stress_mult
+                s1, s2, s3 = st.columns(3)
+                s1.metric(
+                    f"Stressed RWA ({stress_mult:.1f}x)",
+                    f"${stressed_total / 1e6:,.2f}M",
+                    delta=f"+{(stressed_total - total_updated) / 1e6:,.2f}M vs updated",
+                )
+                s2.metric("Stress Factor", f"{stress_mult:.1f}x")
+                incremental_capital = (stressed_total - total_updated) * 0.08
+                s3.metric(
+                    "Additional Capital Required",
+                    f"${incremental_capital / 1e6:,.2f}M",
+                    help="At 8% minimum capital ratio (Basel III Pillar 1)",
+                )
+
+                fig_stress = go.Figure()
+                fig_stress.add_trace(go.Bar(
+                    name="Baseline",
+                    x=labels,
+                    y=[float(r["rwa_baseline"]) for r in data],
+                    marker_color="#6c8ebf",
+                ))
+                fig_stress.add_trace(go.Bar(
+                    name="Updated",
+                    x=labels,
+                    y=[float(r["rwa_updated"]) for r in data],
+                    marker_color="#d4a373",
+                ))
+                fig_stress.add_trace(go.Bar(
+                    name=f"Stressed ({stress_mult:.1f}x)",
+                    x=labels,
+                    y=[float(r["rwa_updated"]) * stress_mult for r in data],
+                    marker_color="#dc3545",
+                    opacity=0.75,
+                ))
+                fig_stress.update_layout(
+                    barmode="group",
+                    title=f"RWA with {stress_mult:.1f}x Stress Scenario",
+                    yaxis_title="RWA Amount",
+                    template="plotly_white",
+                    height=400,
+                )
+                st.plotly_chart(fig_stress, use_container_width=True)
 
 # ---------------------------------------------------------------------------
 # Tab 6 – Clause-to-SQL Explainability (Enhancement 5)
@@ -472,7 +559,6 @@ with tabs[5]:
     if details:
         left, right = st.columns([1, 1])
 
-        # Parse clause citations from agent trace
         agent_trace = details.get("agent_trace", {})
         if isinstance(agent_trace, str):
             try:
@@ -501,7 +587,7 @@ with tabs[5]:
                     else:
                         st.write(f"- {c}")
             else:
-                st.info("No structured clause citations available. The agent returned plain text citations.")
+                st.info("No structured clause citations available.")
                 if isinstance(citations, list):
                     for c in citations:
                         st.write(f"- {c}")
@@ -514,13 +600,73 @@ with tabs[5]:
                 st.info("No generated SQL found.")
 
 # ---------------------------------------------------------------------------
-# Tab 7 – Lineage & Audit (Enhancement 6)
+# Tab 7 – Lineage & Audit (Enhancement 6 + C: Timeline + E: Audit Export)
 # ---------------------------------------------------------------------------
 with tabs[6]:
     st.subheader("Lineage & Audit Explorer")
     st.caption("Trace any output back to its source policy")
 
+    # Enhancement C: Policy Version Timeline
+    st.markdown("#### Policy Version Timeline")
+    timeline_pid = st.text_input(
+        "policy_id for timeline",
+        value=st.session_state.get("demo_policy_id", ""),
+        key="timeline_pid",
+    )
+    if timeline_pid and st.button("Load Timeline", key="load_timeline"):
+        tl_data = service.repo.get_policy_timeline(timeline_pid)
+        st.session_state["timeline_data"] = tl_data
+
+    tl_data = st.session_state.get("timeline_data", [])
+    if tl_data:
+        # Build Plotly timeline
+        import plotly.express as px
+
+        events_x, events_y, events_text, events_color = [], [], [], []
+        for row in tl_data:
+            # Upload event
+            if row.get("uploaded_at"):
+                events_x.append(row["uploaded_at"])
+                events_y.append("Upload")
+                events_text.append(f"{row['policy_version_id']}<br>by {row.get('uploaded_by', 'N/A')}")
+                events_color.append("#3b82f6")
+            # Approval event
+            if row.get("approved_at"):
+                events_x.append(row["approved_at"])
+                events_y.append("SQL Approval")
+                events_text.append(f"{row.get('sql_version_id', 'N/A')}<br>by {row.get('approved_by', 'N/A')}")
+                events_color.append("#10b981")
+            # Run event
+            if row.get("started_at"):
+                events_x.append(row["started_at"])
+                events_y.append("Run")
+                events_text.append(f"{row.get('run_id', 'N/A')}<br>{row.get('run_status', 'N/A')}")
+                events_color.append("#8b5cf6")
+
+        fig_tl = go.Figure()
+        fig_tl.add_trace(go.Scatter(
+            x=events_x,
+            y=events_y,
+            mode="markers+text",
+            text=events_text,
+            textposition="top center",
+            marker=dict(size=14, color=events_color, line=dict(width=2, color="white")),
+            hovertext=events_text,
+        ))
+        fig_tl.update_layout(
+            title=f"Policy Lifecycle Timeline — {timeline_pid}",
+            xaxis_title="Time",
+            yaxis_title="Event Type",
+            template="plotly_white",
+            height=300,
+            showlegend=False,
+        )
+        st.plotly_chart(fig_tl, use_container_width=True)
+
+    st.markdown("---")
+
     # Lineage graph section
+    st.markdown("#### Run Lineage Graph")
     lineage_run = st.text_input(
         "run_id",
         value=st.session_state.get("demo_run_id", ""),
@@ -536,7 +682,6 @@ with tabs[6]:
 
     chain = st.session_state.get("lineage_chain")
     if chain:
-        # Mermaid lineage graph
         pid = chain.get("policy_id", "?")
         pvid = chain.get("policy_version_id", "?")
         svid = chain.get("sql_version_id", "?")
@@ -565,7 +710,6 @@ graph LR
 ```"""
         st.markdown(mermaid)
 
-        # Detail cards
         st.markdown("---")
         st.markdown("#### Lineage Details")
         d1, d2, d3 = st.columns(3)
@@ -590,7 +734,69 @@ graph LR
             st.write(f"- **Started:** {chain.get('run_started', 'N/A')}")
             st.write(f"- **Ended:** {chain.get('run_ended', 'N/A')}")
 
-    # Raw table browser (kept from original)
+        # Enhancement E: One-Click Audit Package Export
+        st.markdown("---")
+        st.markdown("#### Export Audit Package")
+        st.caption("Download a complete audit-ready zip: lineage metadata, generated SQL, RWA comparison, and lineage graph")
+
+        if st.button("Prepare Audit Package", key="prep_audit"):
+            buf = io.BytesIO()
+            with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+                # 1. Lineage metadata
+                zf.writestr("lineage_metadata.json", json.dumps(chain, indent=2, default=str))
+
+                # 2. Generated SQL
+                sql_content = service.repo.get_latest_generated_sql(chain.get("sql_version_id", ""))
+                if sql_content:
+                    zf.writestr("generated_sql.sql", sql_content)
+
+                # 3. RWA comparison CSV
+                impact_data = st.session_state.get("impact_data", [])
+                if impact_data:
+                    csv_buf = io.StringIO()
+                    writer = csv.DictWriter(csv_buf, fieldnames=list(impact_data[0].keys()))
+                    writer.writeheader()
+                    writer.writerows([{k: str(v) for k, v in row.items()} for row in impact_data])
+                    zf.writestr("rwa_comparison.csv", csv_buf.getvalue())
+
+                # 4. Mermaid lineage graph source
+                mermaid_src = f"""graph LR
+    PDF[Policy PDF {pid}] --> VER[Version {pvid}]
+    VER --> EXT[Extraction model: {chain.get('model_version', 'N/A')}]
+    EXT --> SQL[SQL {svid}]
+    SQL --> APPROVE[Approved by {chain.get('approved_by', 'N/A')}]
+    APPROVE --> RUN[Run {rid}]
+    RUN --> OUT[RWA Outputs]
+"""
+                zf.writestr("lineage_graph.mermaid", mermaid_src)
+
+                # 5. Run summary
+                run_summary = {k: str(v) for k, v in {
+                    "run_id": chain.get("run_id"),
+                    "policy_id": chain.get("policy_id"),
+                    "policy_version_id": chain.get("policy_version_id"),
+                    "sql_version_id": chain.get("sql_version_id"),
+                    "run_status": chain.get("run_status"),
+                    "run_started": chain.get("run_started"),
+                    "run_ended": chain.get("run_ended"),
+                    "approved_by": chain.get("approved_by"),
+                    "approved_at": chain.get("approved_at"),
+                    "uploaded_by": chain.get("uploaded_by"),
+                    "gcs_uri": chain.get("gcs_uri"),
+                }.items()}
+                zf.writestr("run_summary.json", json.dumps(run_summary, indent=2))
+
+            buf.seek(0)
+            run_id_short = chain.get("run_id", "audit")
+            st.download_button(
+                label="Download Audit Package (.zip)",
+                data=buf,
+                file_name=f"audit_package_{run_id_short}.zip",
+                mime="application/zip",
+                key="download_audit",
+            )
+
+    # Raw table browser
     st.markdown("---")
     st.markdown("#### Raw Table Browser")
     table = st.selectbox(
@@ -607,3 +813,169 @@ graph LR
     if st.button("Refresh table", key="refresh_raw"):
         rows = service.repo.list_table(table, limit=200)
         st.dataframe(rows, use_container_width=True)
+
+# ---------------------------------------------------------------------------
+# Tab 8 – Capital Adequacy Ratios (Enhancement A)
+# ---------------------------------------------------------------------------
+with tabs[7]:
+    st.subheader("Capital Adequacy Ratios")
+    st.caption("CET1 and Tier 1 ratios computed from live RWA outputs · Basel III thresholds")
+
+    try:
+        cap_metrics = service.repo.get_dashboard_metrics()
+        live_rwa_m = cap_metrics["total_rwa"] / 1e6 if cap_metrics["total_rwa"] > 0 else 22.0
+    except Exception:
+        live_rwa_m = 22.0
+
+    cap_col1, cap_col2 = st.columns([1, 2])
+    with cap_col1:
+        cet1_capital = st.number_input("CET1 Capital ($M)", value=5.0, min_value=0.1, step=0.5, key="cet1_cap")
+        tier1_capital = st.number_input("Tier 1 Capital ($M)", value=6.5, min_value=0.1, step=0.5, key="tier1_cap")
+        total_capital = st.number_input("Total Capital ($M)", value=8.0, min_value=0.1, step=0.5, key="total_cap")
+        st.metric("Total RWA (live)", f"${live_rwa_m:,.2f}M")
+
+        cet1_ratio = (cet1_capital / live_rwa_m * 100) if live_rwa_m > 0 else 0
+        tier1_ratio = (tier1_capital / live_rwa_m * 100) if live_rwa_m > 0 else 0
+        total_ratio = (total_capital / live_rwa_m * 100) if live_rwa_m > 0 else 0
+
+        st.metric(
+            "CET1 Ratio",
+            f"{cet1_ratio:.2f}%",
+            delta=f"{cet1_ratio - 4.5:+.2f}% vs 4.5% floor",
+            delta_color="normal",
+        )
+        st.metric(
+            "Tier 1 Ratio",
+            f"{tier1_ratio:.2f}%",
+            delta=f"{tier1_ratio - 6.0:+.2f}% vs 6.0% floor",
+            delta_color="normal",
+        )
+        st.metric(
+            "Total Capital Ratio",
+            f"{total_ratio:.2f}%",
+            delta=f"{total_ratio - 8.0:+.2f}% vs 8.0% floor",
+            delta_color="normal",
+        )
+
+    with cap_col2:
+        fig_gauges = go.Figure()
+
+        for i, (label, value, ref, domain_x) in enumerate([
+            ("CET1 Ratio (%)", cet1_ratio, 4.5, [0.0, 0.3]),
+            ("Tier 1 Ratio (%)", tier1_ratio, 6.0, [0.35, 0.65]),
+            ("Total Capital (%)", total_ratio, 8.0, [0.7, 1.0]),
+        ]):
+            fig_gauges.add_trace(go.Indicator(
+                mode="gauge+number+delta",
+                value=value,
+                title={"text": label, "font": {"size": 13}},
+                delta={"reference": ref, "valueformat": ".2f", "suffix": "%"},
+                number={"suffix": "%", "valueformat": ".2f"},
+                gauge={
+                    "axis": {"range": [0, 20], "tickwidth": 1, "tickformat": ".0f"},
+                    "bar": {"color": "#0d6efd" if value >= ref else "#dc3545"},
+                    "steps": [
+                        {"range": [0, ref], "color": "#fee2e2"},
+                        {"range": [ref, ref * 1.5], "color": "#fef9c3"},
+                        {"range": [ref * 1.5, 20], "color": "#dcfce7"},
+                    ],
+                    "threshold": {
+                        "line": {"color": "#dc3545", "width": 3},
+                        "thickness": 0.75,
+                        "value": ref,
+                    },
+                },
+                domain={"x": domain_x, "y": [0, 1]},
+            ))
+
+        fig_gauges.update_layout(
+            height=380,
+            template="plotly_white",
+            margin=dict(t=60, b=40),
+        )
+        st.plotly_chart(fig_gauges, use_container_width=True)
+
+        st.caption(
+            "🔴 Below minimum · 🟡 Caution (≤1.5× floor) · 🟢 Adequately capitalized  "
+            "| Basel III minimums: CET1 4.5% · Tier 1 6.0% · Total 8.0%"
+        )
+
+        # Capital buffer analysis
+        st.markdown("#### Capital Buffer Analysis")
+        buf_col1, buf_col2, buf_col3 = st.columns(3)
+        buf_col1.metric(
+            "CET1 Buffer",
+            f"${(cet1_capital - live_rwa_m * 0.045):,.2f}M",
+            help="Capital above 4.5% CET1 minimum",
+            delta=f"{cet1_ratio - 4.5:+.2f}pp headroom",
+        )
+        buf_col2.metric(
+            "Tier 1 Buffer",
+            f"${(tier1_capital - live_rwa_m * 0.06):,.2f}M",
+            help="Capital above 6.0% Tier 1 minimum",
+            delta=f"{tier1_ratio - 6.0:+.2f}pp headroom",
+        )
+        buf_col3.metric(
+            "Total Capital Buffer",
+            f"${(total_capital - live_rwa_m * 0.08):,.2f}M",
+            help="Capital above 8.0% total minimum",
+            delta=f"{total_ratio - 8.0:+.2f}pp headroom",
+        )
+
+# ---------------------------------------------------------------------------
+# Tab 9 – RWA Analyst: Natural Language Query (Enhancement F)
+# ---------------------------------------------------------------------------
+with tabs[8]:
+    st.subheader("RWA Analyst")
+    st.caption("Ask Gemini a natural language question about your RWA data")
+
+    nl_question = st.text_area(
+        "Question",
+        placeholder="e.g. What drove the increase in Corporate RWA between the two runs?",
+        height=100,
+        key="nl_question",
+    )
+
+    # Build context from available session data
+    nl_context: dict = {}
+    impact_data = st.session_state.get("impact_data")
+    if impact_data:
+        nl_context["rwa_comparison"] = impact_data
+    chain = st.session_state.get("lineage_chain")
+    if chain:
+        nl_context["lineage"] = {
+            k: v for k, v in chain.items()
+            if k in ("policy_id", "policy_version_id", "sql_version_id", "run_id",
+                     "run_status", "approved_by", "validation_status")
+        }
+    try:
+        nl_metrics = service.repo.get_dashboard_metrics()
+        nl_context["dashboard_metrics"] = nl_metrics
+    except Exception:
+        pass
+
+    st.caption(
+        f"Context loaded: {', '.join(nl_context.keys()) if nl_context else 'none — run a comparison first for richer answers'}"
+    )
+
+    if st.button("Ask Gemini", type="primary", disabled=not nl_question.strip()):
+        if not nl_context:
+            st.warning("No RWA data in session yet. Run a comparison in Tab 5 first for grounded answers.")
+        else:
+            with st.spinner("Gemini is analysing your RWA data..."):
+                answer = service.agent.answer_rwa_question(nl_question, nl_context)
+            st.markdown("#### Answer")
+            st.markdown(answer)
+
+    # Suggested questions
+    st.markdown("---")
+    st.markdown("**Suggested questions:**")
+    suggestions = [
+        "What drove the increase in Corporate RWA between the two runs?",
+        "Which portfolio has the highest risk-weighted assets and why?",
+        "How does the policy change impact our capital adequacy position?",
+        "What is the net RWA impact of moving from baseline to updated policy?",
+        "Which risk bucket shows the most sensitivity to the policy update?",
+    ]
+    for s in suggestions:
+        st.markdown(f"- *{s}*")

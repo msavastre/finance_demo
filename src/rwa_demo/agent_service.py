@@ -73,3 +73,21 @@ BigQuery schema snapshot:
         }
         return summary, sql, trace
 
+    def answer_rwa_question(self, question: str, context: dict[str, Any]) -> str:
+        """Answer a natural language question about RWA data using Gemini."""
+        context_text = json.dumps(context, indent=2, default=str)
+        prompt = f"""You are a regulatory capital analyst for Global Finance and Treasury.
+
+Context — RWA reporting data:
+{context_text}
+
+Question: {question}
+
+Answer concisely and accurately for a senior banking audience. Reference specific dollar amounts
+and percentages where relevant. Use standard banking/Basel III terminology."""
+        result = self.model.generate_content(
+            prompt,
+            generation_config={"temperature": 0.2},
+        )
+        return result.text
+
