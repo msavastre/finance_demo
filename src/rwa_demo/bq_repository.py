@@ -25,27 +25,9 @@ class BigQueryRepository:
     ) -> None:
         query = f"""
 INSERT INTO {self._table("policy_documents")}
-(
-  policy_id,
-  policy_version_id,
-  uploaded_at,
-  uploaded_by,
-  gcs_uri,
-  policy_object_ref,
-  status,
-  supersedes_policy_version_id
-)
+(policy_id, policy_version_id, uploaded_at, uploaded_by, gcs_uri, status, supersedes_policy_version_id)
 VALUES
-(
-  @policy_id,
-  @policy_version_id,
-  CURRENT_TIMESTAMP(),
-  @uploaded_by,
-  @gcs_uri,
-  OBJ.MAKE_REF(@gcs_uri),
-  'draft',
-  @supersedes_policy_version_id
-)
+(@policy_id, @policy_version_id, CURRENT_TIMESTAMP(), @uploaded_by, @gcs_uri, 'draft', @supersedes_policy_version_id)
 """
         params = [
             bigquery.ScalarQueryParameter("policy_id", "STRING", policy_id),
@@ -168,6 +150,35 @@ LIMIT 1
         params = [bigquery.ScalarQueryParameter("limit", "INT64", limit)]
         rows = self.client.query(query, job_config=bigquery.QueryJobConfig(query_parameters=params)).result()
         return [dict(row) for row in rows]
+
+    def get_policy_objects(self) -> list[dict[str, Any]]:
+        """Query the Object Table joined with policy_documents metadata."""
+        query = f"""
+SELECT
+  obj.uri,
+  obj.content_type,
+  obj.size,
+  obj.updated,
+  obj.md5_hash,
+  pd.policy_id,
+  pd.policy_version_id,
+  pd.uploaded_by,
+  pd.status
+FROM {self._table("policy_objects")} obj
+LEFT JOIN {self._table("policy_documents")} pd
+  ON obj.uri = pd.gcs_uri
+ORDER BY obj.updated DESC
+LIMIT 100
+"""
+        rows = list(self.client.query(query).result())
+        result = []
+        for row in rows:
+            d = dict(row)
+            for k, v in d.items():
+                if hasattr(v, "isoformat"):
+                    d[k] = v.isoformat()
+            result.append(d)
+        return result
 
     def get_policy_gcs_uri(self, policy_version_id: str) -> str:
         query = f"""

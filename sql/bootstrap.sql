@@ -1,5 +1,4 @@
--- Create dataset manually if needed:
--- CREATE SCHEMA IF NOT EXISTS `your-project.rwa_demo`;
+-- Dataset is created by scripts/bootstrap_bq.py before this file is executed.
 
 CREATE TABLE IF NOT EXISTS `{{project}}.{{dataset}}.policy_documents` (
   policy_id STRING,
@@ -7,9 +6,18 @@ CREATE TABLE IF NOT EXISTS `{{project}}.{{dataset}}.policy_documents` (
   uploaded_at TIMESTAMP,
   uploaded_by STRING,
   gcs_uri STRING,
-  policy_object_ref OBJECT_REF,
   status STRING,
   supersedes_policy_version_id STRING
+);
+
+-- Object Table: live view of every PDF uploaded to the policy GCS bucket.
+-- Requires a Cloud Resource connection named "gcs-connection" in the same location.
+-- The bootstrap script creates the connection and grants the SA access automatically.
+CREATE EXTERNAL TABLE IF NOT EXISTS `{{project}}.{{dataset}}.policy_objects`
+WITH CONNECTION `{{project}}.{{location}}.gcs-connection`
+OPTIONS (
+  object_metadata = 'SIMPLE',
+  uris = ['gs://{{bucket}}/*']
 );
 
 CREATE TABLE IF NOT EXISTS `{{project}}.{{dataset}}.policy_extractions` (
@@ -33,6 +41,12 @@ CREATE TABLE IF NOT EXISTS `{{project}}.{{dataset}}.policy_sql_versions` (
 
 ALTER TABLE `{{project}}.{{dataset}}.policy_documents`
 ADD COLUMN IF NOT EXISTS gcs_uri STRING;
+
+ALTER TABLE `{{project}}.{{dataset}}.policy_documents`
+DROP COLUMN IF EXISTS policy_object_ref;
+
+ALTER TABLE `{{project}}.{{dataset}}.rwa_report_outputs`
+ALTER COLUMN rwa_amount SET DATA TYPE FLOAT64;
 
 ALTER TABLE `{{project}}.{{dataset}}.policy_sql_versions`
 ADD COLUMN IF NOT EXISTS agent_trace JSON;
