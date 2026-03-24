@@ -2,7 +2,7 @@
 set -euo pipefail
 
 : "${GOOGLE_CLOUD_PROJECT:?Set GOOGLE_CLOUD_PROJECT}"
-: "${GOOGLE_CLOUD_LOCATION:=us-central1}"
+: "${GOOGLE_CLOUD_LOCATION:=us-east1}"
 : "${SERVICE_NAME:=rwa-demo-ui}"
 : "${GCS_POLICY_BUCKET:?Set GCS_POLICY_BUCKET}"
 
