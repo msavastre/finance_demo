@@ -6,7 +6,7 @@ main:
           - apiBaseUrl: ${input.api_base_url}
           - policyId: ${input.policy_id}
           - policyVersionId: ${input.policy_version_id}
-          - approvedBy: ${default(input.approved_by, "finance.lead@hsbc.com")}
+          - approvedBy: ${default(input.approved_by, "finance.lead@bank.com")}
     - generateSql:
         call: http.post
         args:

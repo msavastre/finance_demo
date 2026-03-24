@@ -63,6 +63,47 @@ class DemoWorkflowService:
         )
         return sql_version_id, summary, generated_sql
 
+    def generate_sql_phased(self, policy_version_id: str):
+        """Generator that yields (phase, detail) tuples for live progress display."""
+        yield ("fetch_policy", "Locating policy document in BigQuery...")
+        policy_gcs_uri = self.repo.get_policy_gcs_uri(policy_version_id)
+        yield ("fetch_policy_done", f"Policy found: {policy_gcs_uri}")
+
+        yield ("schema_snapshot", "Reading live BigQuery schema...")
+        schema_snapshot = self.repo.get_schema_snapshot()
+        table_count = len(schema_snapshot.get("tables", {}))
+        yield ("schema_snapshot_done", f"Schema loaded: {table_count} tables")
+
+        yield ("agent_generating", "Gemini is reading the policy PDF and generating SQL...")
+        summary, generated_sql, agent_trace = self.agent.generate_sql_from_policy(
+            policy_gcs_uri=policy_gcs_uri,
+            policy_version_id=policy_version_id,
+            schema_snapshot=schema_snapshot,
+        )
+        yield ("agent_done", f"SQL generated. {summary[:120]}")
+
+        yield ("saving", "Persisting extraction and SQL version to BigQuery...")
+        sql_version_id = f"SQL-{uuid.uuid4().hex[:10].upper()}"
+        self.repo.save_policy_extraction(
+            policy_version_id=policy_version_id,
+            extraction_summary=summary,
+            extraction_json=json.dumps(
+                {
+                    "policy_gcs_uri": policy_gcs_uri,
+                    "summary": summary,
+                    "schema_snapshot": schema_snapshot,
+                }
+            ),
+        )
+        self.repo.save_generated_sql(
+            sql_version_id=sql_version_id,
+            policy_version_id=policy_version_id,
+            generated_sql=generated_sql,
+            agent_trace=agent_trace,
+            schema_snapshot=schema_snapshot,
+        )
+        yield ("complete", sql_version_id, summary, generated_sql, agent_trace)
+
     def approve_sql(self, sql_version_id: str, approved_by: str) -> None:
         self.repo.approve_sql(sql_version_id=sql_version_id, approved_by=approved_by)
 

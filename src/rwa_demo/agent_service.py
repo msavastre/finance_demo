@@ -41,8 +41,12 @@ Constraints:
 
 Return strict JSON with keys:
 - summary: short explanation of interpreted rules
-- sql: generated BigQuery SQL
-- clause_citations: list of key policy clauses interpreted
+- sql: generated BigQuery SQL (include inline comments like '-- [C1] ...' referencing clause IDs)
+- clause_citations: list of objects, each with:
+    - clause_id: string like "C1", "C2", etc.
+    - clause_text: the exact policy text or close paraphrase
+    - clause_type: one of "threshold", "mapping", "calculation", "exclusion", "definition"
+    - sql_section: brief description of which SQL section implements this clause
 
 BigQuery schema snapshot:
 {schema_text}
@@ -68,4 +72,22 @@ BigQuery schema snapshot:
             "summary": summary,
         }
         return summary, sql, trace
+
+    def answer_rwa_question(self, question: str, context: dict[str, Any]) -> str:
+        """Answer a natural language question about RWA data using Gemini."""
+        context_text = json.dumps(context, indent=2, default=str)
+        prompt = f"""You are a regulatory capital analyst for Global Finance and Treasury.
+
+Context — RWA reporting data:
+{context_text}
+
+Question: {question}
+
+Answer concisely and accurately for a senior banking audience. Reference specific dollar amounts
+and percentages where relevant. Use standard banking/Basel III terminology."""
+        result = self.model.generate_content(
+            prompt,
+            generation_config={"temperature": 0.2},
+        )
+        return result.text
 

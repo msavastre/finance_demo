@@ -12,7 +12,14 @@ if SRC not in sys.path:
 from rwa_demo.workflow import DemoWorkflowService
 
 app = FastAPI(title="RWA Demo API", version="1.0.0")
-service = DemoWorkflowService()
+_service: DemoWorkflowService | None = None
+
+
+def get_service() -> DemoWorkflowService:
+    global _service
+    if _service is None:
+        _service = DemoWorkflowService()
+    return _service
 
 
 @app.get("/health")
@@ -28,7 +35,7 @@ async def upload_policy(
     file: UploadFile = File(...),
 ) -> dict[str, Any]:
     file_bytes = await file.read()
-    policy_id, policy_version_id, gcs_uri = service.upload_policy(
+    policy_id, policy_version_id, gcs_uri = get_service().upload_policy(
         uploaded_by=uploaded_by,
         filename=file.filename or "policy.pdf",
         file_bytes=file_bytes,
@@ -45,7 +52,7 @@ async def upload_policy(
 @app.post("/sql/generate")
 def generate_sql(payload: dict[str, str]) -> dict[str, str]:
     policy_version_id = payload["policy_version_id"]
-    sql_version_id, summary, generated_sql = service.generate_sql(policy_version_id=policy_version_id)
+    sql_version_id, summary, generated_sql = get_service().generate_sql(policy_version_id=policy_version_id)
     return {
         "policy_version_id": policy_version_id,
         "sql_version_id": sql_version_id,
@@ -56,7 +63,7 @@ def generate_sql(payload: dict[str, str]) -> dict[str, str]:
 
 @app.post("/sql/approve")
 def approve_sql(payload: dict[str, str]) -> dict[str, str]:
-    service.approve_sql(
+    get_service().approve_sql(
         sql_version_id=payload["sql_version_id"],
         approved_by=payload["approved_by"],
     )
@@ -65,7 +72,7 @@ def approve_sql(payload: dict[str, str]) -> dict[str, str]:
 
 @app.post("/sql/execute")
 def execute_sql(payload: dict[str, str]) -> dict[str, str]:
-    run_id = service.execute_sql_agent(
+    run_id = get_service().execute_sql_agent(
         policy_id=payload["policy_id"],
         policy_version_id=payload["policy_version_id"],
         sql_version_id=payload["sql_version_id"],
