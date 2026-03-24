@@ -16,6 +16,7 @@ gcloud run deploy "${SERVICE_NAME}" \
   --project "${GOOGLE_CLOUD_PROJECT}" \
   --region "${GOOGLE_CLOUD_LOCATION}" \
   --image "${IMAGE}" \
-  --allow-unauthenticated
+  --allow-unauthenticated \
+  --set-env-vars "GOOGLE_CLOUD_PROJECT=${GOOGLE_CLOUD_PROJECT},GOOGLE_CLOUD_LOCATION=${GOOGLE_CLOUD_LOCATION},BIGQUERY_DATASET=${BIGQUERY_DATASET:-rwa_demo},GCS_POLICY_BUCKET=${GCS_POLICY_BUCKET:?Set GCS_POLICY_BUCKET},USE_VERTEX_AGENT=true,VERTEX_MODEL=${VERTEX_MODEL:-gemini-2.5-pro},DEMO_MODE=cloud"
 
 echo "API deployed: ${SERVICE_NAME}"
