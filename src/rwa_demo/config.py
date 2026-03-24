@@ -11,7 +11,7 @@ load_dotenv()
 class Settings:
     project_id: str = os.getenv("GOOGLE_CLOUD_PROJECT", "")
     location: str = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
-    dataset: str = os.getenv("BIGQUERY_DATASET", "rwa_demo")
+    dataset: str = os.getenv("BIGQUERY_DATASET", "finance_demo")
     policy_bucket: str = os.getenv("GCS_POLICY_BUCKET", "")
     use_vertex_agent: bool = os.getenv("USE_VERTEX_AGENT", "true").lower() == "true"
     demo_mode: str = os.getenv("DEMO_MODE", "cloud")

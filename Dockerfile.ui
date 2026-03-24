@@ -10,5 +10,11 @@ COPY ui /app/ui
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080
 
-CMD ["streamlit", "run", "ui/streamlit_app.py", "--server.port=8080", "--server.address=0.0.0.0"]
+CMD ["streamlit", "run", "ui/streamlit_app.py", \
+     "--server.port=8080", \
+     "--server.address=0.0.0.0", \
+     "--server.enableXsrfProtection=false", \
+     "--server.enableCORS=false", \
+     "--server.fileWatcherType=none", \
+     "--server.maxUploadSize=50"]
 

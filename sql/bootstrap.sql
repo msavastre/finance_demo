@@ -45,6 +45,9 @@ ADD COLUMN IF NOT EXISTS gcs_uri STRING;
 ALTER TABLE `{{project}}.{{dataset}}.policy_documents`
 DROP COLUMN IF EXISTS policy_object_ref;
 
+ALTER TABLE `{{project}}.{{dataset}}.rwa_report_outputs`
+ALTER COLUMN rwa_amount SET DATA TYPE FLOAT64;
+
 ALTER TABLE `{{project}}.{{dataset}}.policy_sql_versions`
 ADD COLUMN IF NOT EXISTS agent_trace JSON;
 

@@ -11,7 +11,7 @@ ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 load_dotenv(os.path.join(ROOT, ".env"))
 
 project = os.getenv("GOOGLE_CLOUD_PROJECT")
-dataset = os.getenv("BIGQUERY_DATASET", "rwa_demo")
+dataset = os.getenv("BIGQUERY_DATASET", "finance_demo")
 location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 policy_bucket = os.getenv("GCS_POLICY_BUCKET", "")
 
