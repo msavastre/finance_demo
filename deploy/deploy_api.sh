@@ -10,7 +10,7 @@ IMAGE="gcr.io/${GOOGLE_CLOUD_PROJECT}/${SERVICE_NAME}"
 gcloud builds submit . \
   --project "${GOOGLE_CLOUD_PROJECT}" \
   --config cloudbuild-api.yaml \
-  --substitutions "_IMAGE=${IMAGE}"
+  --substitutions "_IMAGE=${IMAGE},_GCS_POLICY_BUCKET=${GCS_POLICY_BUCKET}"
 
 gcloud run deploy "${SERVICE_NAME}" \
   --project "${GOOGLE_CLOUD_PROJECT}" \

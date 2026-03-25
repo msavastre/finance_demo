@@ -214,6 +214,7 @@ if active_tab_idx == 0:
 
             st.session_state["demo_policy_id"] = policy_id
             st.session_state["demo_policy_version_id"] = policy_version_id
+            st.session_state["demo_supersedes"] = supersedes or None
             
             # Auto-switch to Generate SQL tab
             st.session_state["active_tab_idx"] = 1
@@ -231,6 +232,16 @@ if active_tab_idx == 1:
         value=st.session_state.get("demo_policy_version_id", ""),
         key="gen_pvid",
     )
+
+    supersedes_id = st.session_state.get("demo_supersedes")
+    if supersedes_id and gen_pvid:
+        st.info(f":information_source: This version supersedes `{supersedes_id}`. You can analyze what changed in the text before generating SQL.")
+        if st.button("🔍 Explain Policy Text Changes"):
+            with st.spinner("Gemini reading both PDFs to explain the delta..."):
+                explanation = service.explain_policy_delta(supersedes_id, gen_pvid)
+                st.markdown("#### Policy Rule Evolution Analysis")
+                st.markdown(explanation)
+                st.markdown("---")
 
     if st.button("Generate SQL", type="primary", disabled=not gen_pvid):
         with st.status("Generating SQL via Vertex AI Agent...", expanded=True) as status:
@@ -332,6 +343,36 @@ if active_tab_idx == 2:
         if st.button("Approve SQL", disabled=not approve_svid):
             service.approve_sql(sql_version_id=approve_svid, approved_by=operator)
             st.success(f"Approved `{approve_svid}`")
+            st.rerun()
+
+        st.markdown("---")
+        st.markdown("#### :recycle: Prompt/Interactive Feedback Loop")
+        pvid_current = st.session_state.get("demo_policy_version_id", "")
+        feedback_prompt = st.text_area("Adjustment instructions (e.g. 'Use 2.5x weight')", key="regen_feedback")
+        
+        if st.button("Regenerate with Feedback", disabled=not (approve_svid and feedback_prompt)):
+            with st.status(f"Regenerating SQL draft `{approve_svid}` using your feedback...", expanded=True) as status:
+                for step in service.regenerate_sql_with_feedback_phased(policy_version_id=pvid_current, sql_version_id=approve_svid, feedback=feedback_prompt):
+                    phase = step[0]
+                    if phase == "fetch_policy":
+                        st.write(":mag: " + step[1])
+                    elif phase == "fetch_policy_done":
+                        st.write(":white_check_mark: " + step[1])
+                    elif phase == "schema_snapshot":
+                        st.write(":card_file_box: " + step[1])
+                    elif phase == "schema_snapshot_done":
+                        st.write(":white_check_mark: " + step[1])
+                    elif phase == "agent_generating":
+                        st.write(":robot_face: " + step[1])
+                    elif phase == "agent_done":
+                        st.write(":white_check_mark: " + step[1])
+                    elif phase == "saving":
+                        st.write(":floppy_disk: " + step[1])
+                    elif phase == "complete":
+                        st.write("Overwrite Complete!")
+                status.update(label="Overwrite Finished. Checking output!", state="complete", expanded=False)
+            st.success("SQL Draft overwritten in-place with your feedback edits!")
+            st.rerun()
     with c2:
         st.markdown("#### Execute")
         exec_pid = st.text_input(

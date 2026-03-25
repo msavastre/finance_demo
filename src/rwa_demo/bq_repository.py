@@ -89,6 +89,28 @@ VALUES (
         ]
         self.client.query(query, job_config=bigquery.QueryJobConfig(query_parameters=params)).result()
 
+    def update_generated_sql(
+        self,
+        sql_version_id: str,
+        generated_sql: str,
+        agent_trace: dict[str, Any],
+    ) -> None:
+        query = f"""
+UPDATE {self._table("policy_sql_versions")}
+SET generated_sql = @generated_sql,
+    agent_trace = PARSE_JSON(@agent_trace),
+    validation_status = 'pending',
+    approved_by = NULL,
+    approved_at = NULL
+WHERE sql_version_id = @sql_version_id
+"""
+        params = [
+            bigquery.ScalarQueryParameter("generated_sql", "STRING", generated_sql),
+            bigquery.ScalarQueryParameter("agent_trace", "STRING", json.dumps(agent_trace)),
+            bigquery.ScalarQueryParameter("sql_version_id", "STRING", sql_version_id),
+        ]
+        self.client.query(query, job_config=bigquery.QueryJobConfig(query_parameters=params)).result()
+
     def approve_sql(self, sql_version_id: str, approved_by: str) -> None:
         query = f"""
 UPDATE {self._table("policy_sql_versions")}
