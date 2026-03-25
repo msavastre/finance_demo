@@ -15,7 +15,7 @@ class Settings:
     policy_bucket: str = os.getenv("GCS_POLICY_BUCKET", "")
     use_vertex_agent: bool = os.getenv("USE_VERTEX_AGENT", "true").lower() == "true"
     demo_mode: str = os.getenv("DEMO_MODE", "cloud")
-    vertex_model: str = os.getenv("VERTEX_MODEL", "gemini-3.1-pro")
+    vertex_model: str = os.getenv("VERTEX_MODEL", "gemini-2.5-pro")
 
 
 settings = Settings()
