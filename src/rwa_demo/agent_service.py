@@ -73,6 +73,81 @@ BigQuery schema snapshot:
         }
         return summary, sql, trace
 
+    def explain_policy_delta(self, original_gcs_uri: str, updated_gcs_uri: str) -> str:
+        """Tell Gemini to compare two PDFs and explain what rules changed."""
+        prompt = """
+You are a senior regulatory capital analyst.
+Compare the rules in these two versions of the policy document (Original vs Updated).
+Summarize what changed between them and what it means for RWA calculations.
+Highlight structural shifts in thresholds, mappings, or definitions.
+Concisely format your response in markdown. Use standard banking/Basel terminology.
+"""
+        orig_part = Part.from_uri(original_gcs_uri, mime_type="application/pdf")
+        upd_part = Part.from_uri(updated_gcs_uri, mime_type="application/pdf")
+        
+        result = self.model.generate_content(
+            [orig_part, upd_part, prompt],
+            generation_config={"temperature": 0.2},
+        )
+        return result.text
+
+    def regenerate_sql_with_feedback(
+        self,
+        policy_gcs_uri: str,
+        policy_version_id: str,
+        schema_snapshot: dict[str, Any],
+        feedback: str,
+        original_agent_trace: dict[str, Any],
+    ) -> tuple[str, str, dict[str, Any]]:
+        """
+        Regenerate SQL by appending user feedback to the standard prompt.
+        """
+        schema_text = json.dumps(schema_snapshot, indent=2)
+        base_prompt = f"""
+You are a Vertex AI Agent Engine SQL generator for regulatory reporting.
+Task:
+- Read policy rules from the provided PDF.
+- Use the provided BigQuery schema to produce executable BigQuery SQL.
+- SQL must calculate aggregated RWA outputs for Global Finance/Treasury.
+
+Constraints:
+- Use ONLY tables and columns present in schema snapshot.
+- Output SQL that writes to `{{project}}.{{dataset}}.rwa_report_outputs`.
+- Include placeholders: {{run_id}}, {{policy_id}}, {{sql_version_id}}.
+- Hardcode policy_version_id as '{policy_version_id}'.
+- Do not output explanations outside JSON.
+
+Return strict JSON with keys:
+- summary: short explanation of interpreted rules
+- sql: generated BigQuery SQL
+- clause_citations: list of objects [...]
+
+BigQuery schema snapshot:
+{schema_text}
+
+=== USER FEEDBACK ===
+The user was not satisfied with the previous generation. Please apply this manual override/correction:
+"{feedback}"
+"""
+        pdf_part = Part.from_uri(policy_gcs_uri, mime_type="application/pdf")
+        result = self.model.generate_content(
+            [pdf_part, base_prompt],
+            generation_config={"temperature": 0.2, "response_mime_type": "application/json"},
+        )
+
+        parsed = json.loads(result.text)
+        summary = parsed.get("summary", f"Regenerated SQL based on user feedback.")
+        sql = parsed["sql"].strip()
+        trace = {
+            "policy_gcs_uri": policy_gcs_uri,
+            "model": settings.vertex_model,
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "clause_citations": parsed.get("clause_citations", []),
+            "summary": summary,
+            "user_feedback": feedback,
+        }
+        return summary, sql, trace
+
     def answer_rwa_question(self, question: str, context: dict[str, Any]) -> str:
         """Answer a natural language question about RWA data using Gemini."""
         context_text = json.dumps(context, indent=2, default=str)

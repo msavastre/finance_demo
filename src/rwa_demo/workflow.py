@@ -138,3 +138,36 @@ class DemoWorkflowService:
 
         return run_id
 
+    def explain_policy_delta(self, original_policy_version_id: str, updated_policy_version_id: str) -> str:
+        orig_uri = self.repo.get_policy_gcs_uri(original_policy_version_id)
+        upd_uri = self.repo.get_policy_gcs_uri(updated_policy_version_id)
+        return self.agent.explain_policy_delta(orig_uri, upd_uri)
+
+    def regenerate_sql_with_feedback_phased(self, policy_version_id: str, sql_version_id: str, feedback: str):
+        """Generator that yields (phase, detail) tuples for live progress display."""
+        yield ("fetch_policy", "Locating policy document in BigQuery...")
+        policy_gcs_uri = self.repo.get_policy_gcs_uri(policy_version_id)
+        yield ("fetch_policy_done", f"Policy found: {policy_gcs_uri}")
+
+        yield ("schema_snapshot", "Reading live BigQuery schema...")
+        schema_snapshot = self.repo.get_schema_snapshot()
+        table_count = len(schema_snapshot.get("tables", {}))
+        yield ("schema_snapshot_done", f"Schema loaded: {table_count} tables")
+
+        yield ("agent_generating", "Gemini is regenerating SQL with your feedback...")
+        summary, generated_sql, agent_trace = self.agent.regenerate_sql_with_feedback(
+            policy_gcs_uri=policy_gcs_uri,
+            policy_version_id=policy_version_id,
+            schema_snapshot=schema_snapshot,
+            feedback=feedback,
+            original_agent_trace={},
+        )
+        yield ("agent_done", f"SQL regenerated with feedback. {summary[:120]}")
+
+        yield ("saving", "Persisting overwrite to BigQuery...")
+        self.repo.update_generated_sql(
+            sql_version_id=sql_version_id,
+            generated_sql=generated_sql,
+            agent_trace=agent_trace,
+        )
+        yield ("complete", sql_version_id, summary, generated_sql, agent_trace)

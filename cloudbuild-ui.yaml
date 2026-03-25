@@ -1,4 +1,16 @@
 steps:
+  - name: 'python:3.11-slim'
+    id: 'Bootstrap BigQuery'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        pip install google-cloud-bigquery google-cloud-storage google-cloud-bigquery-connection python-dotenv
+        python scripts/bootstrap_bq.py
+    env:
+      - 'GOOGLE_CLOUD_PROJECT=$PROJECT_ID'
+      - 'GCS_POLICY_BUCKET=$_GCS_POLICY_BUCKET'
+
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-f', 'Dockerfile.ui', '-t', '$_IMAGE:$SHORT_SHA', '.']
 

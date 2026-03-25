@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS `{{project}}.{{dataset}}.risk_weight_mapping` (
   risk_weight NUMERIC
 );
 
+TRUNCATE TABLE `{{project}}.{{dataset}}.exposures`;
 INSERT INTO `{{project}}.{{dataset}}.exposures` (portfolio, asset_class, exposure_amount)
 SELECT * FROM UNNEST([
   STRUCT('Treasury_Book' AS portfolio, 'Sovereign' AS asset_class, NUMERIC '20000000' AS exposure_amount),
@@ -94,6 +95,7 @@ SELECT * FROM UNNEST([
   STRUCT('Markets_Book', 'Corporate', NUMERIC '15000000')
 ]);
 
+TRUNCATE TABLE `{{project}}.{{dataset}}.risk_weight_mapping`;
 INSERT INTO `{{project}}.{{dataset}}.risk_weight_mapping` (asset_class, risk_bucket, risk_weight)
 SELECT * FROM UNNEST([
   STRUCT('Sovereign' AS asset_class, 'Low' AS risk_bucket, NUMERIC '0.20' AS risk_weight),
