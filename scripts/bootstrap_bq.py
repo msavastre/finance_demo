@@ -12,7 +12,7 @@ load_dotenv(os.path.join(ROOT, ".env"))
 
 project = os.getenv("GOOGLE_CLOUD_PROJECT")
 dataset = os.getenv("BIGQUERY_DATASET", "finance_demo")
-location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+location = os.getenv("GOOGLE_CLOUD_LOCATION", "us-east1")
 policy_bucket = os.getenv("GCS_POLICY_BUCKET", "")
 
 if not project:
