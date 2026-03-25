@@ -1,5 +1,25 @@
 steps:
   - name: 'gcr.io/cloud-builders/docker'
     args: ['build', '-f', 'Dockerfile.api', '-t', '$_IMAGE', '.']
+
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: 'sh'
+    args:
+      - '-c'
+      - |
+        gcloud run deploy rwa-demo-api \
+          --image $_IMAGE \
+          --region $_LOCATION \
+          --allow-unauthenticated \
+          --set-env-vars "GOOGLE_CLOUD_PROJECT=$_PROJECT,GOOGLE_CLOUD_LOCATION=$_LOCATION,BIGQUERY_DATASET=$_BIGQUERY_DATASET,GCS_POLICY_BUCKET=$_GCS_POLICY_BUCKET,USE_VERTEX_AGENT=true,VERTEX_MODEL=$_VERTEX_MODEL,DEMO_MODE=cloud"
+
 images:
   - '$_IMAGE'
+
+substitutions:
+  _LOCATION: "us-east1"
+  _BIGQUERY_DATASET: "rwa_demo"
+  _VERTEX_MODEL: "gemini-2.5-pro"
+  _IMAGE: "" # Usually provided by trigger context, or can be set to default gcr.io/project/image
+  _PROJECT: "" # Must be provided by trigger
+  _GCS_POLICY_BUCKET: "" # Must be provided by trigger
