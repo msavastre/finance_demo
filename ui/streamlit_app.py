@@ -276,6 +276,8 @@ if active_tab_idx == 1:
             st.markdown("#### Generated SQL")
             st.code(generated_sql, language="sql")
 
+            st.session_state["explain_data"] = {"generated_sql": generated_sql, "agent_trace": agent_trace}
+            
             # Auto-switch to Approve & Execute tab
             st.session_state["active_tab_idx"] = 2
             if demo_mode:
@@ -367,6 +369,43 @@ if active_tab_idx == 2:
 
             if demo_mode:
                 st.session_state["demo_step"] = st.session_state.get("demo_step", 0) + 1
+
+    # Seamless Explainability in Tab 3
+    explain_data = st.session_state.get("explain_data")
+    if explain_data:
+        st.markdown("---")
+        with st.expander("🔍 Show Clause-to-SQL Traceability Traces", expanded=False):
+            left, right = st.columns([1, 1])
+            agent_trace = explain_data.get("agent_trace", {})
+            if isinstance(agent_trace, str):
+                try:
+                    agent_trace = json.loads(agent_trace)
+                except (json.JSONDecodeError, TypeError):
+                    agent_trace = {}
+            citations = agent_trace.get("clause_citations", [])
+            generated_sql = explain_data.get("generated_sql", "")
+
+            with left:
+                st.markdown("#### Policy Clauses")
+                if citations and isinstance(citations, list):
+                    for c in citations:
+                        if isinstance(c, dict):
+                            cid = c.get("clause_id", "?")
+                            ctype = c.get("clause_type", "definition")
+                            badge = f'<span class="clause-badge badge-{ctype}">{cid}</span>'
+                            st.markdown(f'{badge} **{ctype.title()}**', unsafe_allow_html=True)
+                            st.markdown(f"> {c.get('clause_text', 'N/A')}")
+                            st.caption(f"SQL section: {c.get('sql_section', 'N/A')}")
+                            st.markdown("---")
+                else:
+                    st.info("No structured clause citations available.")
+
+            with right:
+                st.markdown("#### Generated SQL")
+                if generated_sql:
+                    st.code(generated_sql, language="sql")
+                else:
+                    st.info("No generated SQL found.")
 
 # ---------------------------------------------------------------------------
 # Tab 4 – SQL Diff Viewer (Enhancement 3)
@@ -744,7 +783,7 @@ if active_tab_idx == 6:
         val_status = chain.get("validation_status", "?")
         approved_by = chain.get("approved_by", "N/A")
 
-        mermaid = f"""```mermaid
+        mermaid_code = f"""
 graph LR
     PDF["📄 Policy PDF<br/>{pid}"] --> VER["📋 Version<br/>{pvid}<br/>Status: {policy_status}"]
     VER --> EXT["🔍 Extraction<br/>Model: {chain.get('model_version', 'N/A')}"]
@@ -760,8 +799,21 @@ graph LR
     style APPROVE fill:#d1fae5,stroke:#10b981
     style RUN fill:#ede9fe,stroke:#8b5cf6
     style OUT fill:#fce7f3,stroke:#ec4899
-```"""
-        st.markdown(mermaid)
+"""
+        import streamlit.components.v1 as components
+        components.html(
+            f"""
+            <div class="mermaid">
+            {mermaid_code}
+            </div>
+            <script type="module">
+              import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+              mermaid.initialize({{ startOnLoad: true }});
+            </script>
+            """,
+            height=400,
+            scrolling=True
+        )
 
         st.markdown("---")
         st.markdown("#### Lineage Details")
