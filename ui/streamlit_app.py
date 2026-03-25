@@ -447,13 +447,40 @@ if active_tab_idx == 3:
         )
         styled = f"""
         <style>
-        .diff_header {{ background-color: #f1f3f5; font-weight: bold; }}
-        .diff_next {{ background-color: #e9ecef; }}
-        .diff_add {{ background-color: #e6ffec; }}
-        .diff_chg {{ background-color: #fff3cd; }}
-        .diff_sub {{ background-color: #ffebe9; }}
-        table.diff {{ font-family: monospace; font-size: 0.8rem; border-collapse: collapse; width: 100%; }}
-        table.diff td {{ padding: 2px 6px; border: 1px solid #dee2e6; }}
+        /* Dark theme overrides for difflib tables */
+        table.diff {{ 
+            font-family: monospace; 
+            font-size: 0.85rem; 
+            border-collapse: collapse; 
+            width: 100%; 
+            background-color: #1e1e1e !important; 
+            color: #e0e0e0 !important; 
+        }}
+        table.diff td {{ 
+            padding: 3px 6px; 
+            border: 1px solid #444444; 
+            color: #e0e0e0 !important; 
+        }}
+        .diff_header {{ 
+            background-color: #2c2c2c; 
+            font-weight: bold; 
+            color: #999999 !important; 
+        }}
+        .diff_next {{ 
+            background-color: #2c2c2c; 
+        }}
+        .diff_add {{ 
+            background-color: #1e4620 !important; /* Dark green */
+            color: #ffffff !important; 
+        }}
+        .diff_chg {{ 
+            background-color: #4e342e !important; /* Dark brown/yellow */
+            color: #ffffff !important; 
+        }}
+        .diff_sub {{ 
+            background-color: #5c2121 !important; /* Dark red */
+            color: #ffffff !important; 
+        }}
         </style>
         {diff_html}
         """
