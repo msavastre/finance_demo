@@ -19,7 +19,7 @@ images:
 substitutions:
   _LOCATION: "us-east1"
   _BIGQUERY_DATASET: "finance_demo"
-  _VERTEX_MODEL: "gemini-2.5-pro"
+  _VERTEX_MODEL: "gemini-3.1-pro"
   _IMAGE: "" # Usually provided by trigger context, or can be set to default gcr.io/project/image
   _PROJECT: "" # Must be provided by trigger
   _GCS_POLICY_BUCKET: "" # Must be provided by trigger

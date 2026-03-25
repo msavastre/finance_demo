@@ -25,8 +25,8 @@ st.markdown(
     """
     <style>
     [data-testid="stMetric"] {
-        background: linear-gradient(135deg, #f8f9fc 0%, #e8edf5 100%);
-        border: 1px solid #d0d7e6;
+        background-color: rgba(128, 128, 128, 0.1);
+        border: 1px solid rgba(128, 128, 128, 0.2);
         border-radius: 12px;
         padding: 16px 20px;
         box-shadow: 0 2px 6px rgba(0,0,0,0.06);
@@ -110,26 +110,40 @@ with st.sidebar:
             st.rerun()
 
 # ---------------------------------------------------------------------------
-# Tabs
+# Navigation (State-Driven Tabs)
 # ---------------------------------------------------------------------------
-tabs = st.tabs(
-    [
-        "1) Upload Policy",
-        "2) Generate SQL",
-        "3) Approve & Execute",
-        "4) SQL Diff",
-        "5) Impact Dashboard",
-        "6) Explainability",
-        "7) Lineage & Audit",
-        "8) Capital Ratios",
-        "9) RWA Analyst",
-    ]
-)
+TABS = [
+    "Upload Policy",
+    "Generate SQL",
+    "Approve & Execute",
+    "SQL Diff",
+    "Impact Dashboard",
+    "Explainability",
+    "Lineage & Audit",
+    "Capital Ratios",
+    "RWA Analyst",
+]
+
+if "active_tab_idx" not in st.session_state:
+    st.session_state["active_tab_idx"] = 0
+
+# Visual Tab Bar using columns + buttons
+cols = st.columns(len(TABS))
+for idx, tab_name in enumerate(TABS):
+    if cols[idx].button(
+        tab_name, 
+        use_container_width=True, 
+        type="primary" if st.session_state["active_tab_idx"] == idx else "secondary"
+    ):
+        st.session_state["active_tab_idx"] = idx
+        st.rerun()
+
+active_tab_idx = st.session_state["active_tab_idx"]
 
 # ---------------------------------------------------------------------------
 # Tab 1 – Upload Policy PDF
 # ---------------------------------------------------------------------------
-with tabs[0]:
+if active_tab_idx == 0:
     st.subheader("Upload baseline or updated policy")
     existing_policy_id = st.text_input(
         "Existing policy_id (leave blank for new policy)",
@@ -168,13 +182,17 @@ with tabs[0]:
 
             st.session_state["demo_policy_id"] = policy_id
             st.session_state["demo_policy_version_id"] = policy_version_id
+            
+            # Auto-switch to Generate SQL tab
+            st.session_state["active_tab_idx"] = 1
             if demo_mode:
                 st.session_state["demo_step"] = st.session_state.get("demo_step", 0) + 1
+            st.rerun()
 
 # ---------------------------------------------------------------------------
 # Tab 2 – Generate SQL (Enhancement 2: streaming progress + B: schema drift)
 # ---------------------------------------------------------------------------
-with tabs[1]:
+if active_tab_idx == 1:
     st.subheader("Generate SQL from policy")
     gen_pvid = st.text_input(
         "policy_version_id",
@@ -226,8 +244,11 @@ with tabs[1]:
             st.markdown("#### Generated SQL")
             st.code(generated_sql, language="sql")
 
+            # Auto-switch to Approve & Execute tab
+            st.session_state["active_tab_idx"] = 2
             if demo_mode:
                 st.session_state["demo_step"] = st.session_state.get("demo_step", 0) + 1
+            st.rerun()
 
     # Enhancement B: Schema Drift Warning
     st.markdown("---")
@@ -264,7 +285,7 @@ with tabs[1]:
 # ---------------------------------------------------------------------------
 # Tab 3 – Approve + Execute
 # ---------------------------------------------------------------------------
-with tabs[2]:
+if active_tab_idx == 2:
     st.subheader("Approve SQL and execute agent")
     c1, c2 = st.columns(2)
     with c1:
@@ -318,7 +339,7 @@ with tabs[2]:
 # ---------------------------------------------------------------------------
 # Tab 4 – SQL Diff Viewer (Enhancement 3)
 # ---------------------------------------------------------------------------
-with tabs[3]:
+if active_tab_idx == 3:
     st.subheader("SQL Version Diff")
     st.caption("Compare generated SQL between two policy versions")
 
@@ -378,7 +399,7 @@ with tabs[3]:
 # ---------------------------------------------------------------------------
 # Tab 5 – RWA Delta Impact Dashboard (Enhancement 4 + D: Stress Test)
 # ---------------------------------------------------------------------------
-with tabs[4]:
+if active_tab_idx == 4:
     st.subheader("RWA Impact Dashboard")
     st.caption("Compare RWA outputs between two report runs")
 
@@ -538,7 +559,7 @@ with tabs[4]:
 # ---------------------------------------------------------------------------
 # Tab 6 – Clause-to-SQL Explainability (Enhancement 5)
 # ---------------------------------------------------------------------------
-with tabs[5]:
+if active_tab_idx == 5:
     st.subheader("Clause-to-SQL Explainability")
     st.caption("See how policy clauses map to generated SQL sections")
 
@@ -602,7 +623,7 @@ with tabs[5]:
 # ---------------------------------------------------------------------------
 # Tab 7 – Lineage & Audit (Enhancement 6 + C: Timeline + E: Audit Export)
 # ---------------------------------------------------------------------------
-with tabs[6]:
+if active_tab_idx == 6:
     st.subheader("Lineage & Audit Explorer")
     st.caption("Trace any output back to its source policy")
 
@@ -817,7 +838,7 @@ graph LR
 # ---------------------------------------------------------------------------
 # Tab 8 – Capital Adequacy Ratios (Enhancement A)
 # ---------------------------------------------------------------------------
-with tabs[7]:
+if active_tab_idx == 7:
     st.subheader("Capital Adequacy Ratios")
     st.caption("CET1 and Tier 1 ratios computed from live RWA outputs · Basel III thresholds")
 
@@ -925,7 +946,7 @@ with tabs[7]:
 # ---------------------------------------------------------------------------
 # Tab 9 – RWA Analyst: Natural Language Query (Enhancement F)
 # ---------------------------------------------------------------------------
-with tabs[8]:
+if active_tab_idx == 8:
     st.subheader("RWA Analyst")
     st.caption("Ask Gemini a natural language question about your RWA data")
 
