@@ -19,7 +19,7 @@ from rwa_demo.workflow import DemoWorkflowService
 # ---------------------------------------------------------------------------
 # Page config & custom CSS
 # ---------------------------------------------------------------------------
-st.set_page_config(page_title="RWA Policy-to-SQL Demo", layout="wide", page_icon="🏦")
+st.set_page_config(page_title="HSBC & Google Cloud RWA Intelligence Platform", layout="wide", page_icon="🏦")
 
 st.markdown(
     """
@@ -49,7 +49,7 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-st.title("RWA Policy-to-SQL Demo")
+st.title("🏦 HSBC & ☁️ Google Cloud RWA Intelligence Platform")
 st.caption("Global Finance + Treasury · Google-native · OBJECT_REF lineage · Vertex AI Agent")
 
 service = DemoWorkflowService()
