@@ -44,14 +44,42 @@ st.markdown(
     .badge-calculation { background: #198754; }
     .badge-exclusion { background: #dc3545; }
     .badge-definition { background: #6f42c1; }
+    
+    /* Chrome Tabs Style for Dashboard Buttons */
+    div.stButton > button {
+        min-height: 52px; /* Enforces equal height */
+        border-radius: 12px 12px 0 0 !important;
+        border: 1px solid #dfe1e5 !important;
+        border-bottom: none !important;
+        background-color: #f1f3f4 !important;
+        color: #3c4043 !important;
+        font-weight: 500 !important;
+        font-size: 0.85rem !important;
+        padding: 5px 10px !important;
+        width: 100% !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        text-align: center !important;
+    }
+    div.stButton > button:hover {
+        background-color: #e8eaed !important;
+    }
+    
+    /* Active Tab Style (using Primary Button trait) */
+    div.stButton > button[kind="primary"], button[data-testid="stBaseButton-primary"] {
+        background-color: #ffffff !important;
+        color: #1a73e8 !important;
+        border-bottom: 3px solid #1a73e8 !important;
+    }
     </style>
     """,
     unsafe_allow_html=True,
 )
 
-col1, col2 = st.columns([1, 4])
+col1, col2 = st.columns([1, 6])
 with col1:
-    st.image("ui/hsbc_google_logo.png", width=200)
+    st.image("ui/hsbc_google_logo.png", width=120)
 with col2:
     st.title("HSBC & Google Cloud RWA Intelligence Platform")
     st.caption("Global Finance + Treasury · Google-native · OBJECT_REF lineage · Vertex AI Agent")
