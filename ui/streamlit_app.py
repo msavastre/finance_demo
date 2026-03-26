@@ -142,6 +142,9 @@ except Exception:
 
 st.divider()
 
+# Set demo_mode to False since we removed the sidebar toggle
+demo_mode = False
+
 # ---------------------------------------------------------------------------
 # Sidebar: Unified Demo Hub (Use Cases)
 # ---------------------------------------------------------------------------
