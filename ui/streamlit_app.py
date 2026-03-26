@@ -170,7 +170,7 @@ with st.sidebar:
 
     st.markdown("---")
     st.caption("Operator Profile:")
-    st.text_input("User Name", value="finance.lead@bank.com", label_visibility="collapsed")
+    operator = st.text_input("User Name", value="finance.lead@bank.com", label_visibility="collapsed")
 
 # ---------------------------------------------------------------------------
 # Navigation (State-Driven Tabs)
