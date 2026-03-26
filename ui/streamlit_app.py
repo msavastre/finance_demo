@@ -370,6 +370,7 @@ if active_tab_idx == 2:
                         st.write(":floppy_disk: " + step[1])
                     elif phase == "complete":
                         st.write("Overwrite Complete!")
+                        st.session_state["explain_data"] = {"generated_sql": step[3], "agent_trace": step[4]}
                 status.update(label="Overwrite Finished. Checking output!", state="complete", expanded=False)
             st.success("SQL Draft overwritten in-place with your feedback edits!")
             st.rerun()
