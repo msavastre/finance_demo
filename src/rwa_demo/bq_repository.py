@@ -167,6 +167,30 @@ LIMIT 1
         )
         return rows[0]["generated_sql"] if rows else None
 
+    def get_sql_version_details(self, sql_version_id: str) -> dict[str, Any] | None:
+        query = f"""
+SELECT psv.sql_version_id, psv.policy_version_id, psv.generated_sql, psv.agent_trace, psv.validation_status,
+       pd.supersedes_policy_version_id
+FROM {self._table("policy_sql_versions")} psv
+JOIN {self._table("policy_documents")} pd
+  ON psv.policy_version_id = pd.policy_version_id
+WHERE psv.sql_version_id = @sql_version_id
+LIMIT 1
+"""
+        params = [bigquery.ScalarQueryParameter("sql_version_id", "STRING", sql_version_id)]
+        rows = list(
+            self.client.query(query, job_config=bigquery.QueryJobConfig(query_parameters=params)).result()
+        )
+        if not rows:
+            return None
+        row = dict(rows[0])
+        if row.get("agent_trace") is not None and not isinstance(row["agent_trace"], dict):
+            try:
+                row["agent_trace"] = json.loads(str(row["agent_trace"]))
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return row
+
     def list_table(self, table: str, limit: int = 100) -> list[dict[str, Any]]:
         query = f"SELECT * FROM {self._table(table)} ORDER BY 1 DESC LIMIT @limit"
         params = [bigquery.ScalarQueryParameter("limit", "INT64", limit)]
@@ -356,10 +380,13 @@ SELECT
   pe.model_version,
   psv.sql_version_id,
   psv.generated_sql,
-  psv.agent_trace
+  psv.agent_trace,
+  pd.supersedes_policy_version_id
 FROM {self._table("policy_extractions")} pe
 LEFT JOIN {self._table("policy_sql_versions")} psv
   ON pe.policy_version_id = psv.policy_version_id
+LEFT JOIN {self._table("policy_documents")} pd
+  ON pe.policy_version_id = pd.policy_version_id
 WHERE pe.policy_version_id = @policy_version_id
 LIMIT 1
 """
