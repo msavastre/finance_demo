@@ -71,6 +71,46 @@ st.markdown(
         background-color: #ffffff !important;
         color: #1a73e8 !important;
         border-bottom: 3px solid #1a73e8 !important;
+    /* Use Case Cards inside Sidebar */
+    .usecase-card {
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 12px;
+        display: flex;
+        align-items: center;
+        transition: all 0.2s ease;
+    }
+    .active-usecase {
+        border-left: 4px solid #1a73e8 !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+    }
+    .future-usecase {
+        opacity: 0.6;
+        background-color: #f8f9fa;
+        cursor: not-allowed;
+    }
+    .usecase-icon {
+        font-size: 1.5rem;
+        margin-right: 12px;
+    }
+    .usecase-content {
+        display: flex;
+        flex-direction: column;
+    }
+    .usecase-title {
+        font-weight: 600;
+        font-size: 0.95rem;
+        color: #3c4043;
+    }
+    .usecase-status {
+        font-size: 0.75rem;
+        font-weight: bold;
+        color: #70757a;
+    }
+    .active-usecase .usecase-status {
+        color: #1a73e8;
     }
     </style>
     """,
@@ -103,43 +143,60 @@ except Exception:
 st.divider()
 
 # ---------------------------------------------------------------------------
-# Sidebar: Operator + Demo Mode
+# Sidebar: Unified Demo Hub (Use Cases)
 # ---------------------------------------------------------------------------
 with st.sidebar:
-    st.header("Operator")
-    operator = st.text_input("User", value="finance.lead@bank.com")
+    st.header("🏢 Unified Demo Hub")
+    st.caption("Active Workspace")
 
-    st.divider()
-    st.header("Demo Mode")
-    demo_mode = st.toggle("One-click guided walkthrough", value=False)
+    st.markdown("---")
+    st.markdown("### Active Use Cases")
+    
+    # RWA (Active)
+    st.markdown(
+        """
+        <div class="usecase-card active-usecase">
+            <span class="usecase-icon">📈</span>
+            <div class="usecase-content">
+                <div class="usecase-title">RWA Policy-to-SQL</div>
+                <div class="usecase-status">ACTIVE</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-    if demo_mode:
-        st.markdown("---")
-        st.markdown("### Demo Steps")
-        steps = [
-            "Act 1: Upload Baseline Policy",
-            "Act 1: Generate SQL",
-            "Act 1: Approve & Execute",
-            "Act 2: Upload Updated Policy",
-            "Act 2: Generate SQL",
-            "Act 2: Approve & Execute",
-            "Act 3: View Impact Dashboard",
-            "Act 3: Explore Lineage",
-        ]
-        current_step = st.session_state.get("demo_step", 0)
-        for i, step in enumerate(steps):
-            if i < current_step:
-                st.markdown(f"~~:white_check_mark: {step}~~")
-            elif i == current_step:
-                st.markdown(f"**:arrow_forward: {step}**")
-            else:
-                st.markdown(f":white_circle: {step}")
+    # Future Use Cases (Greyed out)
+    st.markdown(
+        """
+        <div class="usecase-card future-usecase">
+            <span class="usecase-icon">⚖️</span>
+            <div class="usecase-content">
+                <div class="usecase-title">Stress Testing</div>
+                <div class="usecase-status">FUTURE</div>
+            </div>
+        </div>
+        <div class="usecase-card future-usecase">
+            <span class="usecase-icon">📊</span>
+            <div class="usecase-content">
+                <div class="usecase-title">Capital Forecasting</div>
+                <div class="usecase-status">FUTURE</div>
+            </div>
+        </div>
+        <div class="usecase-card future-usecase">
+            <span class="usecase-icon">🔍</span>
+            <div class="usecase-content">
+                <div class="usecase-title">Credit Risk Modeling</div>
+                <div class="usecase-status">FUTURE</div>
+            </div>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
-        if st.button("Reset Demo", type="secondary"):
-            for key in list(st.session_state.keys()):
-                if key.startswith("demo_"):
-                    del st.session_state[key]
-            st.rerun()
+    st.markdown("---")
+    st.caption("Operator Profile:")
+    st.text_input("User Name", value="finance.lead@bank.com", label_visibility="collapsed")
 
 # ---------------------------------------------------------------------------
 # Navigation (State-Driven Tabs)
