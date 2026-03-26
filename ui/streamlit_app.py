@@ -340,6 +340,19 @@ if active_tab_idx == 2:
             value=st.session_state.get("demo_sql_version_id", ""),
             key="approve_svid",
         )
+
+        if approve_svid:
+            # Hydrate session state if loading a historical version or if it switched
+            if "explain_data" not in st.session_state or st.session_state.get("explain_data_svid") != approve_svid:
+                details = service.repo.get_sql_version_details(approve_svid)
+                if details:
+                    st.session_state["explain_data"] = {
+                        "generated_sql": details["generated_sql"],
+                        "agent_trace": details["agent_trace"]
+                    }
+                    st.session_state["explain_data_svid"] = approve_svid
+                    st.session_state["tab3_supersedes"] = details.get("supersedes_policy_version_id")
+                    st.session_state["tab3_policy_version_id"] = details.get("policy_version_id")
         if st.button("Approve SQL", disabled=not approve_svid):
             service.approve_sql(sql_version_id=approve_svid, approved_by=operator)
             st.success(f"Approved `{approve_svid}`")
@@ -417,13 +430,31 @@ if active_tab_idx == 2:
     if explain_data:
         st.markdown("---")
         with st.expander("🔍 Show Clause-to-SQL Traceability Traces", expanded=False):
-            left, right = st.columns([1, 1])
             agent_trace = explain_data.get("agent_trace", {})
             if isinstance(agent_trace, str):
                 try:
                     agent_trace = json.loads(agent_trace)
                 except (json.JSONDecodeError, TypeError):
                     agent_trace = {}
+
+            # Audit Details (Manual Overrides and Text Deltas)
+            feedback = agent_trace.get("user_feedback")
+            if feedback:
+                st.info(f"📝 **Adjustment Instruction Given:** {feedback}")
+                st.markdown("---")
+
+            supersedes_id = st.session_state.get("tab3_supersedes")
+            current_pvid = st.session_state.get("tab3_policy_version_id")
+            if supersedes_id and current_pvid:
+                st.markdown("#### Mapping to Initial vs Updated Policy")
+                st.caption(f"Comparing `{supersedes_id}` (Original) vs `{current_pvid}` (Updated)")
+                if st.checkbox("🔍 Analyze Rule Evolution Delta", key="analyze_delta_tab3"):
+                    with st.spinner("Gemini reading both PDFs to explain the delta..."):
+                        evolution = service.explain_policy_delta(supersedes_id, current_pvid)
+                        st.markdown(evolution)
+                st.markdown("---")
+
+            left, right = st.columns([1, 1])
             citations = agent_trace.get("clause_citations", [])
             generated_sql = explain_data.get("generated_sql", "")
 
@@ -718,14 +749,31 @@ if active_tab_idx == 5:
 
     details = st.session_state.get("explain_data")
     if details:
-        left, right = st.columns([1, 1])
-
         agent_trace = details.get("agent_trace", {})
         if isinstance(agent_trace, str):
             try:
                 agent_trace = json.loads(agent_trace)
             except (json.JSONDecodeError, TypeError):
                 agent_trace = {}
+
+        # 1. Audit Details (Manual Overrides and Text Deltas)
+        feedback = agent_trace.get("user_feedback")
+        if feedback:
+            st.info(f"📝 **Adjustment Instruction Given:** {feedback}")
+            st.markdown("---")
+
+        supersedes_id = details.get("supersedes_policy_version_id")
+        current_pvid = explain_pvid
+        if supersedes_id and current_pvid:
+            st.markdown("#### Mapping to Initial vs Updated Policy")
+            st.caption(f"Comparing `{supersedes_id}` (Original) vs `{current_pvid}` (Updated)")
+            if st.checkbox("🔍 Analyze Rule Evolution Delta", key="analyze_delta_tab5"):
+                with st.spinner("Gemini reading both PDFs to explain the delta..."):
+                    evolution = service.explain_policy_delta(supersedes_id, current_pvid)
+                    st.markdown(evolution)
+            st.markdown("---")
+
+        left, right = st.columns([1, 1])
 
         citations = agent_trace.get("clause_citations", [])
         generated_sql = details.get("generated_sql", "")
