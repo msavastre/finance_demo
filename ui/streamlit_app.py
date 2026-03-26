@@ -155,42 +155,13 @@ with st.sidebar:
     st.markdown("---")
     st.markdown("### Active Use Cases")
     
-    # RWA (Active)
+    # RWA (Active) - Curated Style
     st.markdown(
         """
-        <div class="usecase-card active-usecase">
+        <div class="usecase-card active-usecase" style="cursor: pointer;">
             <span class="usecase-icon">📈</span>
             <div class="usecase-content">
-                <div class="usecase-title">RWA Policy-to-SQL</div>
-                <div class="usecase-status">ACTIVE</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
-    )
-
-    # Future Use Cases (Greyed out)
-    st.markdown(
-        """
-        <div class="usecase-card future-usecase">
-            <span class="usecase-icon">⚖️</span>
-            <div class="usecase-content">
-                <div class="usecase-title">Stress Testing</div>
-                <div class="usecase-status">FUTURE</div>
-            </div>
-        </div>
-        <div class="usecase-card future-usecase">
-            <span class="usecase-icon">📊</span>
-            <div class="usecase-content">
-                <div class="usecase-title">Capital Forecasting</div>
-                <div class="usecase-status">FUTURE</div>
-            </div>
-        </div>
-        <div class="usecase-card future-usecase">
-            <span class="usecase-icon">🔍</span>
-            <div class="usecase-content">
-                <div class="usecase-title">Credit Risk Modeling</div>
-                <div class="usecase-status">FUTURE</div>
+                <div class="usecase-title" style="color: #1a73e8;">RWA Policy-to-SQL</div>
             </div>
         </div>
         """,
