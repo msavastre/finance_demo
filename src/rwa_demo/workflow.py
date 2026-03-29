@@ -79,9 +79,11 @@ class DemoWorkflowService:
         supersedes_id = self.repo.get_supersedes_policy_version_id(policy_version_id)
         previous_approved = None
         if supersedes_id:
+            yield ("agent_generating", f"Found superseding link to `{supersedes_id}`. Checking for approved SQL...")
             previous_approved = self.repo.get_latest_approved_sql_for_policy_version(supersedes_id)
 
         if supersedes_id and previous_approved:
+            yield ("agent_generating", "Merging previous SQL with new PDF regulations (Composite Query)...")
             original_policy_uri = self.repo.get_policy_gcs_uri(supersedes_id)
             summary, generated_sql, agent_trace = self.agent.generate_composite_sql_from_update(
                 original_policy_gcs_uri=original_policy_uri,
@@ -91,6 +93,8 @@ class DemoWorkflowService:
                 policy_version_id=policy_version_id,
             )
         else:
+            if supersedes_id:
+                yield ("agent_generating", "No approved baseline SQL found for previous version. Generating from single PDF...")
             summary, generated_sql, agent_trace = self.agent.generate_sql_from_policy(
                 policy_gcs_uri=policy_gcs_uri,
                 policy_version_id=policy_version_id,

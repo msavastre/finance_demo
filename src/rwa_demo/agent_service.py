@@ -181,9 +181,9 @@ and percentages where relevant. Use standard banking/Basel III terminology."""
         prompt = f"""
 You are a Vertex AI Agent Engine SQL generator for regulatory reporting.
 Task:
-- Combine calculation rules from the Original Policy PDF and the Updated Policy PDF.
-- The Updated Policy may contain only the changes/deltas. Your job is to output a COMPOSITE SQL that preserves old rules unless overridden by the update!
-- You are provided with the PREVIOUS baseline SQL as a reference code structure.
+- **CRITICAL**: Output a COMPLETE and INDEPENDENT BigQuery SQL query that calculates the TOTAL RWA (Original Rules + Updated Rules). 
+- Do NOT output partial SQL. Do NOT output a delta query. 
+- Take the provided PREVIOUS BASELINE SQL as your starting code, and apply the rules from the Updated Policy PDF over it. Where the update overrides a rule, modify that section of code. Where the update does not mention a rule, PRESERVE the baseline code for it!
 
 Constraints:
 - Use ONLY tables and columns present in schema snapshot.
@@ -191,11 +191,11 @@ Constraints:
 - Include placeholders: {{run_id}}, {{policy_id}}, {{sql_version_id}}.
 - Hardcode policy_version_id as '{policy_version_id}'.
 - Do not output explanations outside JSON.
-- **CRITICAL**: Include inline SQL comments like `-- [V1-C1] ...` or `-- [V2-C1] ...` inside the SQL code next to the rule section to determine version lineage (which rule comes from which version!)
+- **CRITICAL**: Include inline SQL comments like `-- [V1-C1] ...` or `-- [V2-C1] ...` next to the rule sections to determine version lineage (which rule comes from which version!)
 
 Return strict JSON with keys:
-- summary: short explanation of interpreted rules (mention what changed from the baseline!)
-- sql: generated BigQuery SQL
+- summary: short explanation of interpreted rules (focus on what changed from the baseline!)
+- sql: generated BigQuery SQL (the COMPLETE composite query)
 - clause_citations: list of objects, each with:
     - clause_id: string. PREFIX WITH 'V1-' for Original Policy rules, or 'V2-' for Updated Policy rules (e.g., "V1-C1", "V2-C1")!
     - clause_text: the exact policy text or close paraphrase
