@@ -166,3 +166,66 @@ and percentages where relevant. Use standard banking/Basel III terminology."""
         )
         return result.text
 
+    def generate_composite_sql_from_update(
+        self,
+        original_policy_gcs_uri: str,
+        updated_policy_gcs_uri: str,
+        previous_sql: str,
+        schema_snapshot: dict[str, Any],
+        policy_version_id: str,
+    ) -> tuple[str, str, dict[str, Any]]:
+        """
+        Merge rules from an Original PDF and an Updated PDF (Deltas) into a new composite SQL.
+        """
+        schema_text = json.dumps(schema_snapshot, indent=2)
+        prompt = f"""
+You are a Vertex AI Agent Engine SQL generator for regulatory reporting.
+Task:
+- Combine calculation rules from the Original Policy PDF and the Updated Policy PDF.
+- The Updated Policy may contain only the changes/deltas. Your job is to output a COMPOSITE SQL that preserves old rules unless overridden by the update!
+- You are provided with the PREVIOUS baseline SQL as a reference code structure.
+
+Constraints:
+- Use ONLY tables and columns present in schema snapshot.
+- Output SQL that writes to `{{project}}.{{dataset}}.rwa_report_outputs`.
+- Include placeholders: {{run_id}}, {{policy_id}}, {{sql_version_id}}.
+- Hardcode policy_version_id as '{policy_version_id}'.
+- Do not output explanations outside JSON.
+
+Return strict JSON with keys:
+- summary: short explanation of interpreted rules (mention what changed from the baseline!)
+- sql: generated BigQuery SQL
+- clause_citations: list of objects, each with:
+    - clause_id: string. PREFIX WITH 'V1-' for Original Policy rules, or 'V2-' for Updated Policy rules (e.g., "V1-C1", "V2-C1")!
+    - clause_text: the exact policy text or close paraphrase
+    - clause_type: one of "threshold", "mapping", "calculation", "exclusion", "definition"
+    - sql_section: brief description of which SQL section implements this clause
+
+BigQuery schema snapshot:
+{schema_text}
+
+=== PREVIOUS BASELINE SQL ===
+{previous_sql}
+"""
+
+        orig_part = Part.from_uri(original_policy_gcs_uri, mime_type="application/pdf")
+        upd_part = Part.from_uri(updated_policy_gcs_uri, mime_type="application/pdf")
+        
+        result = self.model.generate_content(
+            [orig_part, upd_part, prompt],
+            generation_config={"temperature": 0.35, "response_mime_type": "application/json"},
+        )
+
+        parsed = json.loads(result.text)
+        summary = parsed.get("summary", f"Composite RWA update applied for {policy_version_id}.")
+        sql = parsed["sql"].strip()
+        trace = {
+            "policy_gcs_uri": updated_policy_gcs_uri,
+            "original_policy_gcs_uri": original_policy_gcs_uri,
+            "model": settings.vertex_model,
+            "generated_at": datetime.utcnow().isoformat() + "Z",
+            "clause_citations": parsed.get("clause_citations", []),
+            "summary": summary,
+        }
+        return summary, sql, trace
+

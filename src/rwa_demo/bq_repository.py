@@ -191,6 +191,28 @@ LIMIT 1
                 pass
         return row
 
+    def get_latest_approved_sql_for_policy_version(self, policy_version_id: str) -> dict[str, Any] | None:
+        """Find the most recent approved SQL version for a given policy version."""
+        query = f"""
+SELECT s.sql_version_id, s.generated_sql, s.agent_trace
+FROM {self._table("policy_sql_versions")} s
+WHERE s.policy_version_id = @policy_version_id
+  AND s.validation_status = 'approved'
+ORDER BY s.approved_at DESC
+LIMIT 1
+"""
+        params = [bigquery.ScalarQueryParameter("policy_version_id", "STRING", policy_version_id)]
+        rows = list(self.client.query(query, job_config=bigquery.QueryJobConfig(query_parameters=params)).result())
+        if not rows:
+            return None
+        row = dict(rows[0])
+        if row.get("agent_trace") is not None and not isinstance(row["agent_trace"], dict):
+            try:
+                row["agent_trace"] = json.loads(str(row["agent_trace"]))
+            except (json.JSONDecodeError, TypeError):
+                pass
+        return row
+
     def list_table(self, table: str, limit: int = 100) -> list[dict[str, Any]]:
         query = f"SELECT * FROM {self._table(table)} ORDER BY 1 DESC LIMIT @limit"
         params = [bigquery.ScalarQueryParameter("limit", "INT64", limit)]
@@ -240,6 +262,17 @@ LIMIT 1
         if not rows:
             raise ValueError(f"No policy document found for {policy_version_id}")
         return rows[0]["gcs_uri"]
+
+    def get_supersedes_policy_version_id(self, policy_version_id: str) -> str | None:
+        query = f"""
+SELECT supersedes_policy_version_id
+FROM {self._table("policy_documents")}
+WHERE policy_version_id = @policy_version_id
+LIMIT 1
+"""
+        params = [bigquery.ScalarQueryParameter("policy_version_id", "STRING", policy_version_id)]
+        rows = list(self.client.query(query, job_config=bigquery.QueryJobConfig(query_parameters=params)).result())
+        return rows[0]["supersedes_policy_version_id"] if rows else None
 
     def get_schema_snapshot(self) -> dict[str, Any]:
         query = f"""
