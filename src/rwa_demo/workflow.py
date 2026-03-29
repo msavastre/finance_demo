@@ -75,11 +75,27 @@ class DemoWorkflowService:
         yield ("schema_snapshot_done", f"Schema loaded: {table_count} tables")
 
         yield ("agent_generating", "Gemini is reading the policy PDF and generating SQL...")
-        summary, generated_sql, agent_trace = self.agent.generate_sql_from_policy(
-            policy_gcs_uri=policy_gcs_uri,
-            policy_version_id=policy_version_id,
-            schema_snapshot=schema_snapshot,
-        )
+        
+        supersedes_id = self.repo.get_supersedes_policy_version_id(policy_version_id)
+        previous_approved = None
+        if supersedes_id:
+            previous_approved = self.repo.get_latest_approved_sql_for_policy_version(supersedes_id)
+
+        if supersedes_id and previous_approved:
+            original_policy_uri = self.repo.get_policy_gcs_uri(supersedes_id)
+            summary, generated_sql, agent_trace = self.agent.generate_composite_sql_from_update(
+                original_policy_gcs_uri=original_policy_uri,
+                updated_policy_gcs_uri=policy_gcs_uri,
+                previous_sql=previous_approved["generated_sql"],
+                schema_snapshot=schema_snapshot,
+                policy_version_id=policy_version_id,
+            )
+        else:
+            summary, generated_sql, agent_trace = self.agent.generate_sql_from_policy(
+                policy_gcs_uri=policy_gcs_uri,
+                policy_version_id=policy_version_id,
+                schema_snapshot=schema_snapshot,
+            )
         yield ("agent_done", f"SQL generated. {summary[:120]}")
 
         yield ("saving", "Persisting extraction and SQL version to BigQuery...")
