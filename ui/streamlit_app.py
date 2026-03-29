@@ -47,7 +47,7 @@ st.markdown(
     
     /* Chrome Tabs Style for Dashboard Buttons */
     div.stButton > button {
-        min-height: 52px; /* Enforces equal height */
+        height: 64px !important; /* Forces equal height across all screen sizes */
         border-radius: 12px 12px 0 0 !important;
         border: 1px solid #dfe1e5 !important;
         border-bottom: none !important;
