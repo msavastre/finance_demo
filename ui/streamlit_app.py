@@ -506,7 +506,13 @@ if active_tab_idx == 2:
                         if isinstance(c, dict):
                             cid = c.get("clause_id", "?")
                             ctype = c.get("clause_type", "definition")
+                            
                             badge = f'<span class="clause-badge badge-{ctype}">{cid}</span>'
+                            if cid.startswith("V1-"):
+                                badge = f'<span class="clause-badge" style="background-color: #70757a; color: white;">Initial</span> {badge}'
+                            elif cid.startswith("V2-"):
+                                badge = f'<span class="clause-badge" style="background-color: #1a73e8; color: white;">Update</span> {badge}'
+                                
                             st.markdown(f'{badge} **{ctype.title()}**', unsafe_allow_html=True)
                             st.markdown(f"> {c.get('clause_text', 'N/A')}")
                             st.caption(f"SQL section: {c.get('sql_section', 'N/A')}")
@@ -826,7 +832,13 @@ if active_tab_idx == 5:
                     if isinstance(c, dict):
                         cid = c.get("clause_id", "?")
                         ctype = c.get("clause_type", "definition")
+                        
                         badge = f'<span class="clause-badge badge-{ctype}">{cid}</span>'
+                        if cid.startswith("V1-"):
+                            badge = f'<span class="clause-badge" style="background-color: #70757a; color: white;">Initial</span> {badge}'
+                        elif cid.startswith("V2-"):
+                            badge = f'<span class="clause-badge" style="background-color: #1a73e8; color: white;">Update</span> {badge}'
+
                         st.markdown(
                             f'{badge} **{ctype.title()}**',
                             unsafe_allow_html=True,

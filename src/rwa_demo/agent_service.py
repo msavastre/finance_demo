@@ -191,6 +191,7 @@ Constraints:
 - Include placeholders: {{run_id}}, {{policy_id}}, {{sql_version_id}}.
 - Hardcode policy_version_id as '{policy_version_id}'.
 - Do not output explanations outside JSON.
+- **CRITICAL**: Include inline SQL comments like `-- [V1-C1] ...` or `-- [V2-C1] ...` inside the SQL code next to the rule section to determine version lineage (which rule comes from which version!)
 
 Return strict JSON with keys:
 - summary: short explanation of interpreted rules (mention what changed from the baseline!)
