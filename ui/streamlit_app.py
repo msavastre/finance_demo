@@ -213,6 +213,16 @@ if active_tab_idx == 0:
         value=st.session_state.get("demo_policy_id", ""),
         key="upload_existing_pid",
     )
+
+    if existing_policy_id:
+        # If we haven't checked this policy yet, find its latest version to auto-suggest in 'supersedes'
+        if st.session_state.get("last_queried_pid_supersedes") != existing_policy_id:
+            timeline = service.repo.get_policy_timeline(existing_policy_id)
+            if timeline:
+                latest_v_id = timeline[-1]["policy_version_id"]
+                st.session_state["demo_supersedes"] = latest_v_id
+                st.session_state["last_queried_pid_supersedes"] = existing_policy_id
+
     supersedes = st.text_input(
         "Supersedes policy_version_id (optional)",
         value=st.session_state.get("demo_supersedes", ""),
