@@ -126,17 +126,22 @@ with col2:
         st.title("Cloud RWA Intelligence Platform")
         st.caption("Global Finance + Treasury · Google-native · OBJECT_REF lineage · Vertex AI Agent")
     else:
-        st.title("Real-Time Transactional Risk (Continuous Queries)")
+        st.title("Real-Time Transactional Risk")
         st.caption("Google Cloud BigQuery + Machine Learning Ingestion Simulation Engine")
 
 service = DemoWorkflowService()
+
+@st.cache_data(ttl=30)
+def get_cached_metrics(_service):
+    """Cache dashboard metrics to prevent BigQuery lag on page reloads."""
+    return _service.repo.get_dashboard_metrics()
 
 # ---------------------------------------------------------------------------
 # Enhancement 1: Executive KPI Cards (RWA ONLY)
 # ---------------------------------------------------------------------------
 if st.session_state.get("active_use_case", "RWA Policy-to-SQL") == "RWA Policy-to-SQL":
     try:
-        metrics = service.repo.get_dashboard_metrics()
+        metrics = get_cached_metrics(service)
         k1, k2, k3, k4 = st.columns(4)
         k1.metric("Policies Uploaded", metrics["total_policies"])
         k2.metric("Approved SQL Versions", metrics["approved_sql"])
@@ -1272,11 +1277,11 @@ if active_tab_idx == 8 and active_uc == "RWA Policy-to-SQL":
         st.markdown(f"- *{s}*")
 
 # ---------------------------------------------------------------------------
-# Tab 10 – Live Streaming Credit Risk (Continuous Queries Simulation)
+# Tab 10 – Live Streaming Credit Risk
 # ---------------------------------------------------------------------------
 if active_uc == "Real-Time Transactional Risk":
-    st.subheader("📡 Real-Time Transactional Risk (Continuous Queries)")
-    st.caption("Simulate real-time credit card swipes and watch BigQuery Continuous Queries flag breaches instantly.")
+    st.subheader("📡 Real-Time Transactional Risk")
+    st.caption("Simulate real-time credit card swipes and watch BigQuery Machine Learning evaluate them instantly.")
 
     col1, col2 = st.columns([1, 2])
 
