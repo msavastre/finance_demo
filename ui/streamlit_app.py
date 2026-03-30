@@ -1286,6 +1286,14 @@ if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
             st.success("Launched background stream simulator! Logs redirected to `simulate_stream.log`.")
             st.info("Wait a few seconds for data to hit BigQuery, then click Refresh.")
 
+        if st.button("👁️ View Simulator Logs", type="secondary"):
+            import os
+            if os.path.exists("simulate_stream.log"):
+                with open("simulate_stream.log", "r") as f:
+                    st.code(f.read(), language="text")
+            else:
+                st.info("No logs found. Try running simulation first!")
+
     with col2:
         st.markdown("#### Live Monitoring Dashboard")
         if st.button("🔄 Refresh Live Stream Dashboard"):
