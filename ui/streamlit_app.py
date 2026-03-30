@@ -1275,11 +1275,13 @@ if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
 
     with col1:
         st.markdown("#### Simulation Controls")
-        if st.button("▶️ Simulate Live Transactions Stream", type="primary"):
-            # Trigger script as subprocess so it runs in background
-            import subprocess
-            subprocess.Popen(["python3", "scripts/simulate_stream.py"])
-            st.success("Launched `scripts/simulate_stream.py` background stream simulator!")
+            # Trigger script as subprocess using same python executable
+            # Redirect logs to workspace file for debugging
+            log_path = "simulate_stream.log"
+            with open(log_path, "w") as log_file:
+                import sys
+                subprocess.Popen([sys.executable, "scripts/simulate_stream.py"], stdout=log_file, stderr=log_file)
+            st.success("Launched background stream simulator! Logs redirected to `simulate_stream.log`.")
             st.info("Wait a few seconds for data to hit BigQuery, then click Refresh.")
 
     with col2:
