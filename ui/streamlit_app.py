@@ -1390,4 +1390,4 @@ if active_uc == "Real-Time Transactional Risk":
                 with open("simulate_stream.log", "r") as f:
                     st.code(f.read(), language="text")
             else:
-        
+                st.info("No logs found. Run simulation first.")
