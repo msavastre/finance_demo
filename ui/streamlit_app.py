@@ -1313,19 +1313,61 @@ if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
         st.markdown("#### Live Monitoring Dashboard")
         if st.button("🔄 Refresh Live Stream Dashboard"):
             try:
-                # Query simulated data using ML.PREDICT
+                # Query aggregated metrics for top-bar
+                metrics_q = f"""
+                SELECT 
+                  COUNT(*) as total_count,
+                  AVG(transaction_amount) as avg_amount,
+                  SUM(CASE WHEN p.predicted_is_fraud_label = 1 THEN 1 ELSE 0 END) as fraud_count
+                FROM ml.PREDICT(MODEL `{service.repo.project}.{service.repo.dataset}.fraud_model`, 
+                                 (SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions`)) p
+                """
+                metrics_df = service.repo.client.query(metrics_q).to_dataframe()
+
+                total_swipes = int(metrics_df["total_count"].iloc[0]) if not metrics_df.empty else 0
+                avg_swipe = float(metrics_df["avg_amount"].iloc[0]) if not metrics_df.empty else 0.0
+                fraud_count = int(metrics_df["fraud_count"].iloc[0]) if not metrics_df.empty else 0
+
+                # Render Metrics Row
+                m_col1, m_col2, m_col3 = st.columns([1, 1, 1])
+                with m_col1:
+                    st.metric("📊 Total Simulated Swipes", total_swipes, delta=f"+{total_swipes} entries")
+                with m_col2:
+                    st.metric("📈 Avg Transaction Amount", f"${avg_swipe:.2f}", delta=f"+${avg_swipe*0.05:.1f}")
+                with m_col3:
+                    st.metric("🚨 ML Evaluated Frauds", fraud_count, delta=f"+{fraud_count} detected", delta_color="inverse" if fraud_count > 0 else "normal")
+
+                # Query time-series data using ML.PREDICT for Plotly
                 tx_q = f"""
                 SELECT transaction_id, cardholder_id, transaction_amount, credit_limit, transaction_time, 
                        CASE WHEN p.predicted_is_fraud_label = 1 THEN p.predicted_is_fraud_label_probs[OFFSET(0)].prob ELSE 0.0 END as fraud_score
                 FROM ml.PREDICT(MODEL `{service.repo.project}.{service.repo.dataset}.fraud_model`, 
                                  (SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions`)) p
-                ORDER BY transaction_time DESC LIMIT 10
+                ORDER BY transaction_time DESC LIMIT 30
                 """
                 tx_df = service.repo.client.query(tx_q).to_dataframe()
-                
-                st.markdown("##### 💳 Latest Transactions (with Live BQML Fraud Score!)")
+
                 if not tx_df.empty:
-                    st.dataframe(tx_df)
+                    import plotly.express as px
+                    
+                    # Add Binary Color mapping for High Risks
+                    tx_df["Alert Color"] = tx_df["fraud_score"].apply(lambda x: "High Risk (ML)" if x > 0.5 else "Standard Transaction")
+                    
+                    st.markdown("##### 📈 Live Dynamic Swipe Metric Trends")
+                    fig = px.scatter(
+                        tx_df, 
+                        x="transaction_time", 
+                        y="transaction_amount", 
+                        color="Alert Color",
+                        color_discrete_map={"High Risk (ML)": "#D62728", "Standard Transaction": "#1F77B4"},
+                        hover_data=["transaction_id", "cardholder_id", "fraud_score"],
+                        title="Live Transaction Amount (Evaluating Anomaly Intercepts)"
+                    )
+                    fig.update_layout(template="plotly_dark", height=400)
+                    st.plotly_chart(fig, use_container_width=True)
+
+                    st.markdown("##### 💳 Raw Evaluation Trace Listing")
+                    st.dataframe(tx_df[["transaction_id", "cardholder_id", "transaction_amount", "fraud_score", "transaction_time"]].style.background_gradient(subset=["fraud_score"], cmap="Reds"))
                 else:
                     st.info("No Transactions seen yet. Click simulate stream!")
 
@@ -1335,7 +1377,11 @@ if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
                 try:
                     tx_q_fallback = f"SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions` ORDER BY transaction_time DESC LIMIT 10"
                     tx_df_fallback = service.repo.client.query(tx_q_fallback).to_dataframe()
-                    st.dataframe(tx_df_fallback)
+                    
+                    if not tx_df_fallback.empty:
+                        st.dataframe(tx_df_fallback)
+                    else:
+                        st.info("No Transactions seen yet.")
                 except Exception:
                     st.info("No Transactions seen yet.")
             except Exception as e:
