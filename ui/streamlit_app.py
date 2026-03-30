@@ -1347,8 +1347,9 @@ if active_uc == "Real-Time Transactional Risk":
         else:
             st.info("No Transactions seen yet in BigQuery ML. Click simulate stream below!")
 
-    except Exception:
-        st.info("Falling back to standard rule engine (Ensure you click 'Train BQML Model' first!)...")
+    except Exception as e:
+        st.info("Falling back to standard rule engine... (Check logs or click 'Retrain Model')")
+        st.caption(f"⚠️ Query Error: {str(e)}")
         try:
             tx_q_fallback = f"SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions` ORDER BY transaction_time DESC LIMIT 10"
             tx_df_fallback = service.repo.client.query(tx_q_fallback).to_dataframe()
