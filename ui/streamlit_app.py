@@ -177,7 +177,10 @@ with st.sidebar:
         index=0 if st.session_state["active_use_case"] == "RWA Policy-to-SQL" else 1,
         label_visibility="collapsed"
     )
-    st.session_state["active_use_case"] = selected_uc
+    # Detect use-case change and force instant redraw!
+    if st.session_state.get("active_use_case") != selected_uc:
+        st.session_state["active_use_case"] = selected_uc
+        st.rerun()
 
     st.markdown("---")
     st.caption("Operator Profile:")
@@ -1400,12 +1403,4 @@ if active_uc == "Real-Time Transactional Risk":
                 st.info(f"Connecting to BigQuery... (If tables don't exist yet, run `streaming_setup.sql` or click simulate to populate)")
                 st.caption(str(e))
 
-        st.markdown("---")
-        st.markdown("#### ⚙️ Continuous Query Spec Definition")
-        st.markdown("In production, this persistent SQL runs on standard reservations slots and pushes to Pub/Sub topics or tables autonomously:")
-        st.code("""
-CREATE OR REPLACE CONTINUOUS QUERY finance_demo.monitor_breaches AS
-SELECT transaction_id, cardholder_id, transaction_amount, credit_limit, CURRENT_TIMESTAMP() as breached_at
-FROM finance_demo.simulated_transactions
-WHERE transaction_amount > credit_limit;
-        """, language="sql")
+        
