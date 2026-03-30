@@ -1373,7 +1373,7 @@ if active_uc == "Real-Time Transactional Risk":
             st.info("Wait a few seconds for data to hit BigQuery, then toggle sidebar to refresh.")
 
     with c2:
-        if st.button("🧠 Train BQML Fraud Model", type="secondary"):
+        if st.button("🧠 Retrain BQML Fraud Model", type="secondary"):
             with st.spinner("Training BQML Logistic Regression Model... (takes ~30s)"):
                 try:
                     sql_path = "sql/train_fraud_model.sql"
