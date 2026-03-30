@@ -119,7 +119,7 @@ st.markdown(
 
 col1, col2 = st.columns([1, 6])
 with col1:
-    st.image("ui/hsbc_google_logo.png", width=120)
+    st.image("ui/generic_fsi_logo.png", width=50)
 with col2:
     current_uc = st.session_state.get("active_use_case", "RWA Policy-to-SQL")
     if current_uc == "RWA Policy-to-SQL":
