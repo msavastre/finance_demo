@@ -1343,7 +1343,7 @@ if active_uc == "Real-Time Transactional Risk":
             st.plotly_chart(fig, use_container_width=True)
             
             st.markdown("##### 💳 Evaluation Trace History Listing")
-            st.dataframe(tx_df[["transaction_id", "cardholder_id", "transaction_amount", "fraud_score", "transaction_time"]].style.background_gradient(subset=["fraud_score"], cmap="Reds"))
+            st.dataframe(tx_df[["transaction_id", "cardholder_id", "transaction_amount", "fraud_score", "transaction_time"]])
         else:
             st.info("No Transactions seen yet in BigQuery ML. Click simulate stream below!")
 
