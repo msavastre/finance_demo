@@ -20,4 +20,4 @@ CREATE TABLE IF NOT EXISTS {{project}}.{{dataset}}.breach_events (
 -- CREATE OR REPLACE CONTINUOUS QUERY {{project}}.{{dataset}}.monitor_breaches AS
 -- SELECT transaction_id, cardholder_id, transaction_amount, credit_limit, CURRENT_TIMESTAMP() as breached_at
 -- FROM {{project}}.{{dataset}}.simulated_transactions
--- WHERE transaction_amount > credit_limit;
+-- WHERE transaction_amount > credit_limit
