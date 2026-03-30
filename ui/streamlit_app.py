@@ -1275,6 +1275,7 @@ if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
 
     with col1:
         st.markdown("#### Simulation Controls")
+        if st.button("▶️ Simulate Live Transactions Stream", type="primary"):
             # Trigger script as subprocess using same python executable
             # Redirect logs to workspace file for debugging
             log_path = "simulate_stream.log"
