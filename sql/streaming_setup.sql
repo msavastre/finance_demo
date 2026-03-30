@@ -9,7 +9,8 @@ CREATE TABLE IF NOT EXISTS {{project}}.{{dataset}}.simulated_transactions (
     cardholder_id STRING,
     transaction_amount NUMERIC,
     credit_limit NUMERIC,
-    transaction_time TIMESTAMP
+    transaction_time TIMESTAMP,
+    is_fraud_label INT64
 );
 
 CREATE TABLE IF NOT EXISTS {{project}}.{{dataset}}.breach_events (
