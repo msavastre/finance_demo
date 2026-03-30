@@ -64,18 +64,19 @@ else:
     print(f"IAM already set for {member} on gs://{policy_bucket}")
 
 # ── 4. Run SQL bootstrap ───────────────────────────────────────────────────────
-sql_path = os.path.join(ROOT, "sql", "bootstrap.sql")
-with open(sql_path, "r", encoding="utf-8") as f:
-    raw = f.read()
+for sql_file in ["bootstrap.sql", "streaming_setup.sql"]:
+    sql_path = os.path.join(ROOT, "sql", sql_file)
+    with open(sql_path, "r", encoding="utf-8") as f:
+        raw = f.read()
 
-rendered = (
-    raw.replace("{{project}}", project)
-       .replace("{{dataset}}", dataset)
-       .replace("{{location}}", location)
-       .replace("{{bucket}}", policy_bucket)
-)
+    rendered = (
+        raw.replace("{{project}}", project)
+           .replace("{{dataset}}", dataset)
+           .replace("{{location}}", location)
+           .replace("{{bucket}}", policy_bucket)
+    )
 
-for statement in [s.strip() for s in rendered.split(";") if s.strip()]:
-    client.query(statement).result()
+    for statement in [s.strip() for s in rendered.split(";") if s.strip()]:
+        client.query(statement).result()
 
 print(f"Bootstrapped BigQuery objects in {project}.{dataset}")

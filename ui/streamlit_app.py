@@ -145,49 +145,58 @@ st.divider()
 # Set demo_mode to False since we removed the sidebar toggle
 demo_mode = False
 
+if "active_use_case" not in st.session_state:
+    st.session_state["active_use_case"] = "RWA Policy-to-SQL"
+
 # ---------------------------------------------------------------------------
 # Sidebar: Unified Demo Hub (Use Cases)
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.header("🏢 Unified Demo Hub")
-    st.caption("Active Workspace")
+    st.caption("Centralised Banking Workspace")
 
     st.markdown("---")
-    st.markdown("### Active Use Cases")
+    st.markdown("### 🛠️ Use Case Context")
     
-    # RWA (Active) - Curated Style
-    st.markdown(
-        """
-        <div class="usecase-card active-usecase" style="cursor: pointer;">
-            <span class="usecase-icon">📈</span>
-            <div class="usecase-content">
-                <div class="usecase-title" style="color: #1a73e8;">RWA Policy-to-SQL</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # Use standard Streamlit radio for robust programmatic switching
+    selected_uc = st.radio(
+        "Current Use Case",
+        options=["RWA Policy-to-SQL", "Real-Time Transactional Risk"],
+        index=0 if st.session_state["active_use_case"] == "RWA Policy-to-SQL" else 1,
+        label_visibility="collapsed"
     )
+    st.session_state["active_use_case"] = selected_uc
 
     st.markdown("---")
     st.caption("Operator Profile:")
     operator = st.text_input("User Name", value="finance.lead@bank.com", label_visibility="collapsed")
 
-# ---------------------------------------------------------------------------
-# Navigation (State-Driven Tabs)
-# ---------------------------------------------------------------------------
-TABS = [
-    "Upload Policy",
-    "Generate SQL",
-    "Approve & Execute",
-    "SQL Diff",
-    "Impact Dashboard",
-    "Explainability",
-    "Lineage & Audit",
-    "Capital Ratios",
-    "RWA Analyst",
-]
+# Read active use case
+active_uc = st.session_state["active_use_case"]
+
+# Decide Tab layout based on Use Case selection
+if active_uc == "RWA Policy-to-SQL":
+    TABS = [
+        "Upload Policy",
+        "Generate SQL",
+        "Approve & Execute",
+        "SQL Diff",
+        "Impact Dashboard",
+        "Explainability",
+        "Lineage & Audit",
+        "Capital Ratios",
+        "RWA Analyst",
+    ]
+else:
+    TABS = [
+        "Live Stream Dashboard",
+    ]
 
 if "active_tab_idx" not in st.session_state:
+    st.session_state["active_tab_idx"] = 0
+
+# Bound check if we switched use cases and index is out of bounds
+if st.session_state["active_tab_idx"] >= len(TABS):
     st.session_state["active_tab_idx"] = 0
 
 # Visual Tab Bar using columns + buttons
@@ -206,7 +215,7 @@ active_tab_idx = st.session_state["active_tab_idx"]
 # ---------------------------------------------------------------------------
 # Tab 1 – Upload Policy PDF
 # ---------------------------------------------------------------------------
-if active_tab_idx == 0:
+if active_tab_idx == 0 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Upload baseline or updated policy")
     existing_policy_id = st.text_input(
         "Existing policy_id (leave blank for new policy)",
@@ -266,7 +275,7 @@ if active_tab_idx == 0:
 # ---------------------------------------------------------------------------
 # Tab 2 – Generate SQL (Enhancement 2: streaming progress + B: schema drift)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 1:
+if active_tab_idx == 1 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Generate SQL from policy")
     gen_pvid = st.text_input(
         "policy_version_id",
@@ -371,7 +380,7 @@ if active_tab_idx == 1:
 # ---------------------------------------------------------------------------
 # Tab 3 – Approve + Execute
 # ---------------------------------------------------------------------------
-if active_tab_idx == 2:
+if active_tab_idx == 2 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Approve SQL and execute agent")
     c1, c2 = st.columns(2)
     with c1:
@@ -530,7 +539,7 @@ if active_tab_idx == 2:
 # ---------------------------------------------------------------------------
 # Tab 4 – SQL Diff Viewer (Enhancement 3)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 3:
+if active_tab_idx == 3 and active_uc == "RWA Policy-to-SQL":
     st.subheader("SQL Version Diff")
     st.caption("Compare generated SQL between two policy versions")
 
@@ -617,7 +626,7 @@ if active_tab_idx == 3:
 # ---------------------------------------------------------------------------
 # Tab 5 – RWA Delta Impact Dashboard (Enhancement 4 + D: Stress Test)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 4:
+if active_tab_idx == 4 and active_uc == "RWA Policy-to-SQL":
     st.subheader("RWA Impact Dashboard")
     st.caption("Compare RWA outputs between two report runs")
 
@@ -777,7 +786,7 @@ if active_tab_idx == 4:
 # ---------------------------------------------------------------------------
 # Tab 6 – Clause-to-SQL Explainability (Enhancement 5)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 5:
+if active_tab_idx == 5 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Clause-to-SQL Explainability")
     st.caption("See how policy clauses map to generated SQL sections")
 
@@ -864,7 +873,7 @@ if active_tab_idx == 5:
 # ---------------------------------------------------------------------------
 # Tab 7 – Lineage & Audit (Enhancement 6 + C: Timeline + E: Audit Export)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 6:
+if active_tab_idx == 6 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Lineage & Audit Explorer")
     st.caption("Trace any output back to its source policy")
 
@@ -1092,7 +1101,7 @@ graph LR
 # ---------------------------------------------------------------------------
 # Tab 8 – Capital Adequacy Ratios (Enhancement A)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 7:
+if active_tab_idx == 7 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Capital Adequacy Ratios")
     st.caption("CET1 and Tier 1 ratios computed from live RWA outputs · Basel III thresholds")
 
@@ -1200,7 +1209,7 @@ if active_tab_idx == 7:
 # ---------------------------------------------------------------------------
 # Tab 9 – RWA Analyst: Natural Language Query (Enhancement F)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 8:
+if active_tab_idx == 8 and active_uc == "RWA Policy-to-SQL":
     st.subheader("RWA Analyst")
     st.caption("Ask Gemini a natural language question about your RWA data")
 
@@ -1254,3 +1263,57 @@ if active_tab_idx == 8:
     ]
     for s in suggestions:
         st.markdown(f"- *{s}*")
+
+# ---------------------------------------------------------------------------
+# Tab 10 – Live Streaming Credit Risk (Continuous Queries Simulation)
+# ---------------------------------------------------------------------------
+if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
+    st.subheader("📡 Real-Time Transactional Risk (Continuous Queries)")
+    st.caption("Simulate real-time credit card swipes and watch BigQuery Continuous Queries flag breaches instantly.")
+
+    col1, col2 = st.columns([1, 2])
+
+    with col1:
+        st.markdown("#### Simulation Controls")
+        if st.button("▶️ Simulate Live Transactions Stream", type="primary"):
+            # Trigger script as subprocess so it runs in background
+            import subprocess
+            subprocess.Popen(["python3", "scripts/simulate_stream.py"])
+            st.success("Launched `scripts/simulate_stream.py` background stream simulator!")
+            st.info("Wait a few seconds for data to hit BigQuery, then click Refresh.")
+
+    with col2:
+        st.markdown("#### Live Monitoring Dashboard")
+        if st.button("🔄 Refresh Live Stream Dashboard"):
+            try:
+                # Query simulated data
+                tx_q = f"SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions` ORDER BY transaction_time DESC LIMIT 10"
+                tx_df = service.repo.client.query(tx_q).to_dataframe()
+                
+                br_q = f"SELECT * FROM `{service.repo.project}.{service.repo.dataset}.breach_events` ORDER BY breached_at DESC LIMIT 10"
+                br_df = service.repo.client.query(br_q).to_dataframe()
+
+                st.markdown("##### 💳 Latest Transactions")
+                if not tx_df.empty:
+                    st.dataframe(tx_df)
+                else:
+                    st.info("No Transactions seen yet. Click simulate stream!")
+
+                st.markdown("##### 🚨 Instant Breaches (Detected by BQ!)")
+                if not br_df.empty:
+                    st.dataframe(br_df)
+                else:
+                    st.info("No breaches detected yet.")
+            except Exception as e:
+                st.info(f"Connecting to BigQuery... (If tables don't exist yet, run `streaming_setup.sql` or click simulate to populate)")
+                st.caption(str(e))
+
+        st.markdown("---")
+        st.markdown("#### ⚙️ Continuous Query Spec Definition")
+        st.markdown("In production, this persistent SQL runs on standard reservations slots and pushes to Pub/Sub topics or tables autonomously:")
+        st.code("""
+CREATE OR REPLACE CONTINUOUS QUERY finance_demo.monitor_breaches AS
+SELECT transaction_id, cardholder_id, transaction_amount, credit_limit, CURRENT_TIMESTAMP() as breached_at
+FROM finance_demo.simulated_transactions
+WHERE transaction_amount > credit_limit;
+        """, language="sql")
