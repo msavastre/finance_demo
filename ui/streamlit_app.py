@@ -1286,6 +1286,21 @@ if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
             st.success("Launched background stream simulator! Logs redirected to `simulate_stream.log`.")
             st.info("Wait a few seconds for data to hit BigQuery, then click Refresh.")
 
+        if st.button("🧠 Train BQML Fraud Model", type="secondary"):
+            with st.spinner("Training BQML Logistic Regression Model... (takes ~30s)"):
+                try:
+                    sql_path = "sql/train_fraud_model.sql"
+                    with open(sql_path, "r") as f:
+                        raw = f.read()
+                    rendered = raw.replace("{{project}}", service.repo.project).replace("{{dataset}}", service.repo.dataset)
+                    
+                    # Run it
+                    service.repo.client.query(rendered).result()
+                    st.success("✅ Model Trained successfully! You can now run live predictions.")
+                except Exception as e:
+                    st.error(f"Failed to train BQML model. Ensure historical data exists!")
+                    st.caption(str(e))
+
         if st.button("👁️ View Simulator Logs", type="secondary"):
             import os
             if os.path.exists("simulate_stream.log"):
@@ -1298,24 +1313,31 @@ if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
         st.markdown("#### Live Monitoring Dashboard")
         if st.button("🔄 Refresh Live Stream Dashboard"):
             try:
-                # Query simulated data
-                tx_q = f"SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions` ORDER BY transaction_time DESC LIMIT 10"
+                # Query simulated data using ML.PREDICT
+                tx_q = f"""
+                SELECT transaction_id, cardholder_id, transaction_amount, credit_limit, transaction_time, 
+                       CASE WHEN p.predicted_is_fraud_label = 1 THEN p.predicted_is_fraud_label_probs[OFFSET(0)].prob ELSE 0.0 END as fraud_score
+                FROM ml.PREDICT(MODEL `{service.repo.project}.{service.repo.dataset}.fraud_model`, 
+                                 (SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions`)) p
+                ORDER BY transaction_time DESC LIMIT 10
+                """
                 tx_df = service.repo.client.query(tx_q).to_dataframe()
                 
-                br_q = f"SELECT * FROM `{service.repo.project}.{service.repo.dataset}.breach_events` ORDER BY breached_at DESC LIMIT 10"
-                br_df = service.repo.client.query(br_q).to_dataframe()
-
-                st.markdown("##### 💳 Latest Transactions")
+                st.markdown("##### 💳 Latest Transactions (with Live BQML Fraud Score!)")
                 if not tx_df.empty:
                     st.dataframe(tx_df)
                 else:
                     st.info("No Transactions seen yet. Click simulate stream!")
 
-                st.markdown("##### 🚨 Instant Breaches (Detected by BQ!)")
-                if not br_df.empty:
-                    st.dataframe(br_df)
-                else:
-                    st.info("No breaches detected yet.")
+            except Exception as e:
+                st.info("Falling back to standard rule engine (Ensure you click 'Train BQML Model' first!)...")
+                # Fallback to standard data without ML PREDICT
+                try:
+                    tx_q_fallback = f"SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions` ORDER BY transaction_time DESC LIMIT 10"
+                    tx_df_fallback = service.repo.client.query(tx_q_fallback).to_dataframe()
+                    st.dataframe(tx_df_fallback)
+                except Exception:
+                    st.info("No Transactions seen yet.")
             except Exception as e:
                 st.info(f"Connecting to BigQuery... (If tables don't exist yet, run `streaming_setup.sql` or click simulate to populate)")
                 st.caption(str(e))

@@ -45,6 +45,7 @@ def main():
             "transaction_amount": amount,
             "credit_limit": ch["limit"],
             "transaction_time": datetime.utcnow().isoformat() + "Z",
+            "is_fraud_label": 1 if is_breach else 0,
         }
 
         errors = client.insert_rows_json(table_id, [row])
