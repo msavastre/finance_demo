@@ -1274,7 +1274,7 @@ if active_tab_idx == 8 and active_uc == "RWA Policy-to-SQL":
 # ---------------------------------------------------------------------------
 # Tab 10 – Live Streaming Credit Risk (Continuous Queries Simulation)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
+if active_uc == "Real-Time Transactional Risk":
     st.subheader("📡 Real-Time Transactional Risk (Continuous Queries)")
     st.caption("Simulate real-time credit card swipes and watch BigQuery Continuous Queries flag breaches instantly.")
 
