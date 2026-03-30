@@ -4,9 +4,15 @@ import time
 import uuid
 from datetime import datetime
 
+import os
+import sys
+
 from google.cloud import bigquery
 
-# We reuse config settings if possible, otherwise hardcode for demo
+# Resolve local src/ folder if we are not running from app root directly
+ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+sys.path.append(os.path.join(ROOT, "src"))
+
 from rwa_demo.config import settings
 
 def main():
