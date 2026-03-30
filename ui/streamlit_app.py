@@ -121,23 +121,30 @@ col1, col2 = st.columns([1, 6])
 with col1:
     st.image("ui/hsbc_google_logo.png", width=120)
 with col2:
-    st.title("HSBC & Google Cloud RWA Intelligence Platform")
-    st.caption("Global Finance + Treasury · Google-native · OBJECT_REF lineage · Vertex AI Agent")
+    current_uc = st.session_state.get("active_use_case", "RWA Policy-to-SQL")
+    if current_uc == "RWA Policy-to-SQL":
+        st.title("Cloud RWA Intelligence Platform")
+        st.caption("Global Finance + Treasury · Google-native · OBJECT_REF lineage · Vertex AI Agent")
+    else:
+        st.title("Real-Time Transactional Risk (Continuous Queries)")
+        st.caption("Google Cloud BigQuery + Machine Learning Ingestion Simulation Engine")
 
 service = DemoWorkflowService()
 
 # ---------------------------------------------------------------------------
-# Enhancement 1: Executive KPI Cards
+# Enhancement 1: Executive KPI Cards (RWA ONLY)
 # ---------------------------------------------------------------------------
-try:
-    metrics = service.repo.get_dashboard_metrics()
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Policies Uploaded", metrics["total_policies"])
-    k2.metric("Approved SQL Versions", metrics["approved_sql"])
-    k3.metric("Successful Runs", metrics["successful_runs"])
-    total_rwa = metrics["total_rwa"]
-    k4.metric("Total RWA", f"${total_rwa / 1e6:,.1f}M" if total_rwa >= 1e6 else f"${total_rwa:,.0f}")
-except Exception:
+if st.session_state.get("active_use_case", "RWA Policy-to-SQL") == "RWA Policy-to-SQL":
+    try:
+        metrics = service.repo.get_dashboard_metrics()
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Policies Uploaded", metrics["total_policies"])
+        k2.metric("Approved SQL Versions", metrics["approved_sql"])
+        k3.metric("Successful Runs", metrics["successful_runs"])
+        total_rwa = metrics["total_rwa"]
+        k4.metric("Total RWA", f"${total_rwa / 1e6:,.1f}M" if total_rwa >= 1e6 else f"${total_rwa:,.0f}")
+    except Exception:
+        pass
     st.info("Connect to BigQuery to see live KPI metrics.")
 
 st.divider()
