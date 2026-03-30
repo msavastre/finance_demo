@@ -1,0 +1,8 @@
+config {
+  type: "table",
+  name: "rwa_outputs",
+  description: "Processed RWA outputs"
+}
+
+-- Sample query to read generated RWA numbers and process them
+SELECT * FROM \`finance_demo.rwa_report_outputs\`
