@@ -1286,6 +1286,9 @@ if active_uc == "Real-Time Transactional Risk":
     st.subheader("📡 Real-Time Transactional Risk")
     st.caption("Simulate real-time credit card swipes and watch BigQuery Machine Learning evaluate them instantly.")
 
+    if st.button("🔄 Refresh Transaction Feed", type="primary"):
+        st.rerun()
+
     # auto-paint live metrics on top
     try:
         # Query aggregated metrics for top-bar
