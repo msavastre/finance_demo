@@ -1281,6 +1281,7 @@ if active_tab_idx == 0 and active_uc == "Real-Time Transactional Risk":
             log_path = "simulate_stream.log"
             with open(log_path, "w") as log_file:
                 import sys
+                import subprocess
                 subprocess.Popen([sys.executable, "scripts/simulate_stream.py"], stdout=log_file, stderr=log_file)
             st.success("Launched background stream simulator! Logs redirected to `simulate_stream.log`.")
             st.info("Wait a few seconds for data to hit BigQuery, then click Refresh.")
