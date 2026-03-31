@@ -119,25 +119,37 @@ st.markdown(
 
 col1, col2 = st.columns([1, 6])
 with col1:
-    st.image("ui/hsbc_google_logo.png", width=120)
+    st.image("ui/generic_fsi_logo.png", width=50)
 with col2:
-    st.title("HSBC & Google Cloud RWA Intelligence Platform")
-    st.caption("Global Finance + Treasury · Google-native · OBJECT_REF lineage · Vertex AI Agent")
+    current_uc = st.session_state.get("active_use_case", "RWA Policy-to-SQL")
+    if current_uc == "RWA Policy-to-SQL":
+        st.title("Cloud RWA Intelligence Platform")
+        st.caption("Global Finance + Treasury · Google-native · OBJECT_REF lineage · Vertex AI Agent")
+    else:
+        st.title("Real-Time Transactional Risk")
+        st.caption("Google Cloud BigQuery + Machine Learning Ingestion Simulation Engine")
 
 service = DemoWorkflowService()
 
+@st.cache_data(ttl=30)
+def get_cached_metrics(_service):
+    """Cache dashboard metrics to prevent BigQuery lag on page reloads."""
+    return _service.repo.get_dashboard_metrics()
+
 # ---------------------------------------------------------------------------
-# Enhancement 1: Executive KPI Cards
+# Enhancement 1: Executive KPI Cards (RWA ONLY)
 # ---------------------------------------------------------------------------
-try:
-    metrics = service.repo.get_dashboard_metrics()
-    k1, k2, k3, k4 = st.columns(4)
-    k1.metric("Policies Uploaded", metrics["total_policies"])
-    k2.metric("Approved SQL Versions", metrics["approved_sql"])
-    k3.metric("Successful Runs", metrics["successful_runs"])
-    total_rwa = metrics["total_rwa"]
-    k4.metric("Total RWA", f"${total_rwa / 1e6:,.1f}M" if total_rwa >= 1e6 else f"${total_rwa:,.0f}")
-except Exception:
+if st.session_state.get("active_use_case", "RWA Policy-to-SQL") == "RWA Policy-to-SQL":
+    try:
+        metrics = get_cached_metrics(service)
+        k1, k2, k3, k4 = st.columns(4)
+        k1.metric("Policies Uploaded", metrics["total_policies"])
+        k2.metric("Approved SQL Versions", metrics["approved_sql"])
+        k3.metric("Successful Runs", metrics["successful_runs"])
+        total_rwa = metrics["total_rwa"]
+        k4.metric("Total RWA", f"${total_rwa / 1e6:,.1f}M" if total_rwa >= 1e6 else f"${total_rwa:,.0f}")
+    except Exception:
+        pass
     st.info("Connect to BigQuery to see live KPI metrics.")
 
 st.divider()
@@ -145,49 +157,61 @@ st.divider()
 # Set demo_mode to False since we removed the sidebar toggle
 demo_mode = False
 
+if "active_use_case" not in st.session_state:
+    st.session_state["active_use_case"] = "RWA Policy-to-SQL"
+
 # ---------------------------------------------------------------------------
 # Sidebar: Unified Demo Hub (Use Cases)
 # ---------------------------------------------------------------------------
 with st.sidebar:
     st.header("🏢 Unified Demo Hub")
-    st.caption("Active Workspace")
+    st.caption("Centralised Banking Workspace")
 
     st.markdown("---")
-    st.markdown("### Active Use Cases")
+    st.markdown("### 🛠️ Use Case Context")
     
-    # RWA (Active) - Curated Style
-    st.markdown(
-        """
-        <div class="usecase-card active-usecase" style="cursor: pointer;">
-            <span class="usecase-icon">📈</span>
-            <div class="usecase-content">
-                <div class="usecase-title" style="color: #1a73e8;">RWA Policy-to-SQL</div>
-            </div>
-        </div>
-        """,
-        unsafe_allow_html=True,
+    # Use standard Streamlit radio for robust programmatic switching
+    selected_uc = st.radio(
+        "Current Use Case",
+        options=["RWA Policy-to-SQL", "Real-Time Transactional Risk"],
+        index=0 if st.session_state["active_use_case"] == "RWA Policy-to-SQL" else 1,
+        label_visibility="collapsed"
     )
+    # Detect use-case change and force instant redraw!
+    if st.session_state.get("active_use_case") != selected_uc:
+        st.session_state["active_use_case"] = selected_uc
+        st.rerun()
 
     st.markdown("---")
     st.caption("Operator Profile:")
     operator = st.text_input("User Name", value="finance.lead@bank.com", label_visibility="collapsed")
 
-# ---------------------------------------------------------------------------
-# Navigation (State-Driven Tabs)
-# ---------------------------------------------------------------------------
-TABS = [
-    "Upload Policy",
-    "Generate SQL",
-    "Approve & Execute",
-    "SQL Diff",
-    "Impact Dashboard",
-    "Explainability",
-    "Lineage & Audit",
-    "Capital Ratios",
-    "RWA Analyst",
-]
+# Read active use case
+active_uc = st.session_state["active_use_case"]
+
+# Decide Tab layout based on Use Case selection
+if active_uc == "RWA Policy-to-SQL":
+    TABS = [
+        "Upload Policy",
+        "Generate SQL",
+        "Approve & Execute",
+        "SQL Diff",
+        "Impact Dashboard",
+        "Explainability",
+        "Lineage & Audit",
+        "Capital Ratios",
+        "RWA Analyst",
+    ]
+else:
+    TABS = [
+        "Live Stream Dashboard",
+    ]
 
 if "active_tab_idx" not in st.session_state:
+    st.session_state["active_tab_idx"] = 0
+
+# Bound check if we switched use cases and index is out of bounds
+if st.session_state["active_tab_idx"] >= len(TABS):
     st.session_state["active_tab_idx"] = 0
 
 # Visual Tab Bar using columns + buttons
@@ -206,7 +230,7 @@ active_tab_idx = st.session_state["active_tab_idx"]
 # ---------------------------------------------------------------------------
 # Tab 1 – Upload Policy PDF
 # ---------------------------------------------------------------------------
-if active_tab_idx == 0:
+if active_tab_idx == 0 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Upload baseline or updated policy")
     existing_policy_id = st.text_input(
         "Existing policy_id (leave blank for new policy)",
@@ -266,7 +290,7 @@ if active_tab_idx == 0:
 # ---------------------------------------------------------------------------
 # Tab 2 – Generate SQL (Enhancement 2: streaming progress + B: schema drift)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 1:
+if active_tab_idx == 1 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Generate SQL from policy")
     gen_pvid = st.text_input(
         "policy_version_id",
@@ -371,7 +395,7 @@ if active_tab_idx == 1:
 # ---------------------------------------------------------------------------
 # Tab 3 – Approve + Execute
 # ---------------------------------------------------------------------------
-if active_tab_idx == 2:
+if active_tab_idx == 2 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Approve SQL and execute agent")
     c1, c2 = st.columns(2)
     with c1:
@@ -530,7 +554,7 @@ if active_tab_idx == 2:
 # ---------------------------------------------------------------------------
 # Tab 4 – SQL Diff Viewer (Enhancement 3)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 3:
+if active_tab_idx == 3 and active_uc == "RWA Policy-to-SQL":
     st.subheader("SQL Version Diff")
     st.caption("Compare generated SQL between two policy versions")
 
@@ -617,7 +641,7 @@ if active_tab_idx == 3:
 # ---------------------------------------------------------------------------
 # Tab 5 – RWA Delta Impact Dashboard (Enhancement 4 + D: Stress Test)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 4:
+if active_tab_idx == 4 and active_uc == "RWA Policy-to-SQL":
     st.subheader("RWA Impact Dashboard")
     st.caption("Compare RWA outputs between two report runs")
 
@@ -777,7 +801,7 @@ if active_tab_idx == 4:
 # ---------------------------------------------------------------------------
 # Tab 6 – Clause-to-SQL Explainability (Enhancement 5)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 5:
+if active_tab_idx == 5 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Clause-to-SQL Explainability")
     st.caption("See how policy clauses map to generated SQL sections")
 
@@ -864,7 +888,7 @@ if active_tab_idx == 5:
 # ---------------------------------------------------------------------------
 # Tab 7 – Lineage & Audit (Enhancement 6 + C: Timeline + E: Audit Export)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 6:
+if active_tab_idx == 6 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Lineage & Audit Explorer")
     st.caption("Trace any output back to its source policy")
 
@@ -1092,7 +1116,7 @@ graph LR
 # ---------------------------------------------------------------------------
 # Tab 8 – Capital Adequacy Ratios (Enhancement A)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 7:
+if active_tab_idx == 7 and active_uc == "RWA Policy-to-SQL":
     st.subheader("Capital Adequacy Ratios")
     st.caption("CET1 and Tier 1 ratios computed from live RWA outputs · Basel III thresholds")
 
@@ -1200,7 +1224,7 @@ if active_tab_idx == 7:
 # ---------------------------------------------------------------------------
 # Tab 9 – RWA Analyst: Natural Language Query (Enhancement F)
 # ---------------------------------------------------------------------------
-if active_tab_idx == 8:
+if active_tab_idx == 8 and active_uc == "RWA Policy-to-SQL":
     st.subheader("RWA Analyst")
     st.caption("Ask Gemini a natural language question about your RWA data")
 
@@ -1254,3 +1278,120 @@ if active_tab_idx == 8:
     ]
     for s in suggestions:
         st.markdown(f"- *{s}*")
+
+# ---------------------------------------------------------------------------
+# Tab 10 – Live Streaming Credit Risk
+# ---------------------------------------------------------------------------
+if active_uc == "Real-Time Transactional Risk":
+    st.subheader("📡 Real-Time Transactional Risk")
+    st.caption("Simulate real-time credit card swipes and watch BigQuery Machine Learning evaluate them instantly.")
+
+    if st.button("🔄 Refresh Transaction Feed", type="primary"):
+        st.rerun()
+
+    # auto-paint live metrics on top
+    try:
+        # Query aggregated metrics for top-bar
+        metrics_q = f"""
+        SELECT 
+          COUNT(*) as total_count,
+          AVG(transaction_amount) as avg_amount,
+          SUM(CASE WHEN p.predicted_is_fraud_label = 1 THEN 1 ELSE 0 END) as fraud_count
+        FROM ml.PREDICT(MODEL `{service.repo.project}.{service.repo.dataset}.fraud_model`, 
+                         (SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions`)) p
+        """
+        metrics_df = service.repo.client.query(metrics_q).to_dataframe()
+
+        total_swipes = int(metrics_df["total_count"].iloc[0]) if not metrics_df.empty else 0
+        avg_swipe = float(metrics_df["avg_amount"].iloc[0]) if not metrics_df.empty else 0.0
+        fraud_count = int(metrics_df["fraud_count"].iloc[0]) if not metrics_df.empty else 0
+
+        # Render Metrics Row
+        m_col1, m_col2, m_col3 = st.columns([1, 1, 1])
+        with m_col1:
+            st.metric("📊 Total Simulated Swipes", total_swipes, delta=f"+{total_swipes} entries")
+        with m_col2:
+            st.metric("📈 Avg Transaction Amount", f"${avg_swipe:.2f}")
+        with m_col3:
+            st.metric("🚨 ML Evaluated Frauds", fraud_count, delta=f"+{fraud_count} detected", delta_color="inverse" if fraud_count > 0 else "normal")
+
+        # Query time-series data using ML.PREDICT for Plotly
+        tx_q = f"""
+        SELECT transaction_id, cardholder_id, transaction_amount, credit_limit, transaction_time, 
+               CASE WHEN p.predicted_is_fraud_label = 1 THEN p.predicted_is_fraud_label_probs[OFFSET(0)].prob ELSE 0.0 END as fraud_score
+        FROM ml.PREDICT(MODEL `{service.repo.project}.{service.repo.dataset}.fraud_model`, 
+                         (SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions`)) p
+        ORDER BY transaction_time DESC LIMIT 30
+        """
+        tx_df = service.repo.client.query(tx_q).to_dataframe()
+
+        if not tx_df.empty:
+            import plotly.express as px
+            
+            tx_df["Alert Color"] = tx_df["fraud_score"].apply(lambda x: "High Risk (ML)" if x > 0.5 else "Standard Transaction")
+            
+            st.markdown("##### 📈 Live Dynamic Swipe Metric Trends")
+            fig = px.scatter(
+                tx_df, 
+                x="transaction_time", 
+                y="transaction_amount", 
+                color="Alert Color",
+                color_discrete_map={"High Risk (ML)": "#D62728", "Standard Transaction": "#1F77B4"},
+                hover_data=["transaction_id", "cardholder_id", "fraud_score"],
+            )
+            fig.update_layout(template="plotly_dark", height=350)
+            st.plotly_chart(fig, use_container_width=True)
+            
+            st.markdown("##### 💳 Evaluation Trace History Listing")
+            st.dataframe(tx_df[["transaction_id", "cardholder_id", "transaction_amount", "fraud_score", "transaction_time"]])
+        else:
+            st.info("No Transactions seen yet in BigQuery ML. Click simulate stream below!")
+
+    except Exception as e:
+        st.info("Falling back to standard rule engine... (Check logs or click 'Retrain Model')")
+        st.caption(f"⚠️ Query Error: {str(e)}")
+        try:
+            tx_q_fallback = f"SELECT * FROM `{service.repo.project}.{service.repo.dataset}.simulated_transactions` ORDER BY transaction_time DESC LIMIT 10"
+            tx_df_fallback = service.repo.client.query(tx_q_fallback).to_dataframe()
+            if not tx_df_fallback.empty:
+                st.dataframe(tx_df_fallback)
+        except Exception:
+            pass
+
+    # Simulation controls moved to the middle/bottom
+    st.markdown("---")
+    st.markdown("#### ⚙️ Control Live Stream Analytics")
+    c1, c2, c3 = st.columns([1, 1, 1])
+
+    with c1:
+        if st.button("▶️ Simulate Live Transactions Stream", type="primary"):
+            log_path = "simulate_stream.log"
+            with open(log_path, "w") as log_file:
+                import sys
+                import subprocess
+                subprocess.Popen([sys.executable, "scripts/simulate_stream.py"], stdout=log_file, stderr=log_file)
+            st.success("Launched background stream simulator!")
+            st.info("Wait a few seconds for data to hit BigQuery, then toggle sidebar to refresh.")
+
+    with c2:
+        if st.button("🧠 Retrain BQML Fraud Model", type="secondary"):
+            with st.spinner("Training BQML Logistic Regression Model... (takes ~30s)"):
+                try:
+                    sql_path = "sql/train_fraud_model.sql"
+                    with open(sql_path, "r") as f:
+                        raw = f.read()
+                    rendered = raw.replace("{{project}}", service.repo.project).replace("{{dataset}}", service.repo.dataset)
+                    service.repo.client.query(rendered).result()
+                    st.success("✅ Model Trained successfully!")
+                except Exception as e:
+                    st.error(f"Failed to train BQML model. Ensure historical data exists!")
+                    st.caption(str(e))
+
+    with c3:
+        if st.button("👁️ View Simulator Logs", type="secondary"):
+            import os
+            if os.path.exists("simulate_stream.log"):
+                with open("simulate_stream.log", "r") as f:
+                    st.code(f.read(), language="text")
+            else:
+                st.info("No logs found. Run simulation first.")

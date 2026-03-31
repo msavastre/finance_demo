@@ -64,18 +64,74 @@ else:
     print(f"IAM already set for {member} on gs://{policy_bucket}")
 
 # ── 4. Run SQL bootstrap ───────────────────────────────────────────────────────
-sql_path = os.path.join(ROOT, "sql", "bootstrap.sql")
-with open(sql_path, "r", encoding="utf-8") as f:
-    raw = f.read()
+for sql_file in ["bootstrap.sql", "streaming_setup.sql"]:
+    sql_path = os.path.join(ROOT, "sql", sql_file)
+    with open(sql_path, "r", encoding="utf-8") as f:
+        raw = f.read()
 
-rendered = (
-    raw.replace("{{project}}", project)
-       .replace("{{dataset}}", dataset)
-       .replace("{{location}}", location)
-       .replace("{{bucket}}", policy_bucket)
-)
+    rendered = (
+        raw.replace("{{project}}", project)
+           .replace("{{dataset}}", dataset)
+           .replace("{{location}}", location)
+           .replace("{{bucket}}", policy_bucket)
+    )
 
-for statement in [s.strip() for s in rendered.split(";") if s.strip()]:
-    client.query(statement).result()
+    for statement in [s.strip() for s in rendered.split(";") if s.strip()]:
+        client.query(statement).result()
+
+# --- SEED REALISTIC DATA & PRE-TRAIN BQML ---
+try:
+    check_q = f"SELECT COUNT(*) as cnt FROM `{project}.{dataset}.simulated_transactions`"
+    cnt_df = client.query(check_q).to_dataframe()
+    row_count = cnt_df["cnt"].iloc[0] if not cnt_df.empty else 0
+
+    if row_count == 0:
+        print("Table is cold. Seeding 20 realistic transactions for BQML training...")
+        import uuid
+        import random
+        from datetime import datetime
+        
+        cardholders = [
+            {"id": "CH-1001", "limit": 5000},
+            {"id": "CH-1002", "limit": 2000},
+            {"id": "CH-1003", "limit": 10000},
+            {"id": "CH-1004", "limit": 1500},
+        ]
+        
+        rows = []
+        for _ in range(25):
+            ch = random.choice(cardholders)
+            is_breach = random.random() < 0.3
+            amount = random.randint(100, 2000)
+            if is_breach:
+                amount = ch["limit"] + random.randint(100, 500)
+            
+            rows.append({
+                "transaction_id": f"TX-{uuid.uuid4().hex[:10].upper()}",
+                "cardholder_id": ch["id"],
+                "transaction_amount": amount,
+                "credit_limit": ch["limit"],
+                "transaction_time": datetime.utcnow().isoformat() + "Z",
+                "is_fraud_label": 1 if is_breach else 0,
+            })
+        
+        table_id = f"{project}.{dataset}.simulated_transactions"
+        errors = client.insert_rows_json(table_id, rows)
+        if errors:
+            print(f"Errors seeding rows: {errors}")
+        else:
+            print("✅ Seeding complete!")
+
+        # Train the model now!
+        print("Running pre-train BQML model...")
+        train_sql_path = os.path.join(ROOT, "sql", "train_fraud_model.sql")
+        with open(train_sql_path, "r") as f:
+            train_raw = f.read()
+        train_rendered = train_raw.replace("{{project}}", project).replace("{{dataset}}", dataset)
+        client.query(train_rendered).result()
+        print("✅ BQML Fraud Model Pre-trained successfully on deploy!")
+
+except Exception as e:
+    print(f"Error during data seeding/model training: {e}")
 
 print(f"Bootstrapped BigQuery objects in {project}.{dataset}")

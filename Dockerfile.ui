@@ -6,6 +6,8 @@ RUN pip install --no-cache-dir -r /app/requirements.txt
 
 COPY src /app/src
 COPY ui /app/ui
+COPY scripts /app/scripts
+COPY sql /app/sql
 
 ENV PYTHONUNBUFFERED=1
 ENV PORT=8080

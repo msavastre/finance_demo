@@ -1,0 +1,8 @@
+{
+  "warehouse": "bigquery",
+  "defaultSchema": "finance_demo",
+  "assertionSchema": "finance_demo_assertions",
+  "projectConfig": {
+    "defaultLocation": "US"
+  }
+}
