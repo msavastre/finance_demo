@@ -79,3 +79,33 @@ def execute_sql(payload: dict[str, str]) -> dict[str, str]:
     )
     return {"status": "succeeded", "run_id": run_id}
 
+
+@app.get("/metrics")
+def get_metrics() -> dict[str, Any]:
+    return get_service().repo.get_dashboard_metrics()
+
+
+@app.get("/policies/{policy_id}/timeline")
+def get_policy_timeline(policy_id: str) -> list[dict[str, Any]]:
+    return get_service().repo.get_policy_timeline(policy_id)
+
+
+@app.get("/policies/{policy_id}/sql")
+def get_sql_versions(policy_id: str) -> list[dict[str, Any]]:
+    return get_service().repo.get_sql_versions_for_policy(policy_id)
+
+
+@app.get("/runs")
+def list_runs() -> list[dict[str, Any]]:
+    return get_service().repo.list_report_runs()
+
+
+@app.get("/comparison")
+def get_comparison(baseline_run: str, updated_run: str) -> list[dict[str, Any]]:
+    return get_service().repo.get_rwa_comparison(baseline_run, updated_run)
+
+
+@app.get("/schema-check/{sql_version_id}")
+def check_schema_drift(sql_version_id: str) -> dict[str, Any]:
+    return get_service().repo.get_schema_drift(sql_version_id)
+
